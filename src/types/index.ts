@@ -1,15 +1,21 @@
-// Aquí definimos la "forma" de los datos que usará la app
-// TypeScript usa estos tipos para avisarte si cometes un error
-
 // Una persona en el split
 export type Person = {
-  id: string;   // identificador único
-  name: string; // nombre de la persona
+  id: string;
+  name: string;
 };
 
-// Un item de la cuenta (plato, bebida, etc.)
+// Un item de la cuenta
 export type Item = {
-  id: string;    // identificador único
-  name: string;  // nombre del item (ej: "Pizza")
-  price: number; // precio del item (ej: 12.99)
+  id: string;
+  name: string;
+  price: number;
+  // IDs de las personas que comparten este item
+  // Puede ser una o varias personas
+  assignedTo: string[];
+};
+
+// El resumen de cuánto debe cada persona
+export type PersonSummary = {
+  person: Person;
+  total: number;
 };

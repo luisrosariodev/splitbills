@@ -1,5 +1,3 @@
-// Importamos useState para manejar el estado de la pantalla
-// Importamos useMemo para memorizar cálculos
 import { useState, useMemo } from 'react';
 import {
   StyleSheet,
@@ -10,10 +8,8 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  SectionList, // lista que agrupa items en secciones
+  ScrollView,
 } from 'react-native';
-
-// Importamos los tipos que definimos
 import { Person, Item } from '../types';
 
 export default function CreateSplitScreen() {
@@ -29,112 +25,166 @@ export default function CreateSplitScreen() {
   // Agrega una persona a la lista
   const addPerson = () => {
     if (personInput.trim() === '') return;
-
     const newPerson: Person = {
-      id: Date.now().toString(), // usamos la fecha como id único
+      id: Date.now().toString(),
       name: personInput.trim(),
     };
-
     setPeople([...people, newPerson]);
     setPersonInput('');
   };
 
-  // Agrega un item a la lista
+  // Agrega un item a la lista, sin asignar a nadie todavía
   const addItem = () => {
-    // Validamos que haya nombre y precio válido
     if (itemNameInput.trim() === '') return;
     if (isNaN(parseFloat(itemPriceInput))) return;
-
     const newItem: Item = {
       id: Date.now().toString(),
       name: itemNameInput.trim(),
       price: parseFloat(itemPriceInput),
+      assignedTo: [], // empieza sin asignar
     };
-
     setItems([...items, newItem]);
     setItemNameInput('');
     setItemPriceInput('');
   };
 
-    // Calcula el total sumando todos los precios
-    // useMemo solo recalcula cuando "items" cambia
-    const total = useMemo(() => {
-        return items.reduce((sum, item) => sum + item.price, 0);
-    }, [items]);
+  // Asigna o desasigna una persona a un item
+  // Si ya está asignada → la quita. Si no está → la agrega
+  const toggleAssignment = (itemId: string, personId: string) => {
+    setItems(items.map((item) => {
+      if (item.id !== itemId) return item; // no es este item, no cambia
+
+      const alreadyAssigned = item.assignedTo.includes(personId);
+
+      return {
+        ...item,
+        assignedTo: alreadyAssigned
+          ? item.assignedTo.filter((id) => id !== personId) // quita la persona
+          : [...item.assignedTo, personId], // agrega la persona
+      };
+    }));
+  };
+
+  // Calcula el total general
+  const total = useMemo(() => {
+    return items.reduce((sum, item) => sum + item.price, 0);
+  }, [items]);
+
+  // Calcula cuánto debe cada persona
+  // Si un item tiene 3 personas asignadas → cada una paga 1/3 del precio
+  const summary = useMemo(() => {
+    return people.map((person) => {
+      const personTotal = items.reduce((sum, item) => {
+        if (!item.assignedTo.includes(person.id)) return sum;
+        // dividimos el precio entre todos los asignados
+        return sum + item.price / item.assignedTo.length;
+      }, 0);
+
+      return { person, total: personTotal };
+    });
+  }, [people, items]);
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* ---- SECCIÓN PERSONAS ---- */}
-      <Text style={styles.sectionTitle}>👥 Personas</Text>
+      <ScrollView showsVerticalScrollIndicator={false}>
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nombre"
-          value={personInput}
-          onChangeText={setPersonInput}
-          onSubmitEditing={addPerson}
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addPerson}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lista de personas */}
-      {people.map((person) => (
-        <View key={person.id} style={styles.chip}>
-          <Text style={styles.chipText}>{person.name}</Text>
+        {/* ---- SECCIÓN PERSONAS ---- */}
+        <Text style={styles.sectionTitle}>👥 Personas</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Nombre"
+            value={personInput}
+            onChangeText={setPersonInput}
+            onSubmitEditing={addPerson}
+          />
+          <TouchableOpacity style={styles.addButton} onPress={addPerson}>
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
         </View>
-      ))}
 
-      {/* ---- SECCIÓN ITEMS ---- */}
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>🍽️ Items</Text>
+        {/* Chips de personas */}
+        <View style={styles.chipsRow}>
+          {people.map((person) => (
+            <View key={person.id} style={styles.chip}>
+              <Text style={styles.chipText}>{person.name}</Text>
+            </View>
+          ))}
+        </View>
 
-      <View style={styles.inputRow}>
-        {/* Input del nombre del item */}
-        <TextInput
-          style={[styles.input, { flex: 2 }]}
-          placeholder="Item (ej: Pizza)"
-          value={itemNameInput}
-          onChangeText={setItemNameInput}
-        />
-        {/* Input del precio */}
-        <TextInput
-          style={[styles.input, { flex: 1 }]}
-          placeholder="$0.00"
-          value={itemPriceInput}
-          onChangeText={setItemPriceInput}
-          keyboardType="decimal-pad" // teclado numérico
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addItem}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
+        {/* ---- SECCIÓN ITEMS ---- */}
+        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>🍽️ Items</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, { flex: 2 }]}
+            placeholder="Item (ej: Pizza)"
+            value={itemNameInput}
+            onChangeText={setItemNameInput}
+          />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="$0.00"
+            value={itemPriceInput}
+            onChangeText={setItemPriceInput}
+            keyboardType="decimal-pad"
+          />
+          <TouchableOpacity style={styles.addButton} onPress={addItem}>
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Lista de items */}
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.itemRow}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+        {/* Lista de items con asignación de personas */}
+        {items.map((item) => (
+          <View key={item.id} style={styles.itemCard}>
+            {/* Nombre y precio del item */}
+            <View style={styles.itemHeader}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+            </View>
+
+            {/* Botones para asignar personas al item */}
+            <View style={styles.chipsRow}>
+              {people.map((person) => {
+                const isAssigned = item.assignedTo.includes(person.id);
+                return (
+                  <TouchableOpacity
+                    key={person.id}
+                    style={[styles.chip, isAssigned && styles.chipSelected]}
+                    onPress={() => toggleAssignment(item.id, person.id)}
+                  >
+                    <Text style={[styles.chipText, isAssigned && styles.chipTextSelected]}>
+                      {person.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
+        ))}
+
+        {/* ---- RESUMEN ---- */}
+        {summary.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>💰 Resumen</Text>
+            {summary.map(({ person, total: personTotal }) => (
+              <View key={person.id} style={styles.summaryRow}>
+                <Text style={styles.summaryName}>{person.name}</Text>
+                <Text style={styles.summaryAmount}>${personTotal.toFixed(2)}</Text>
+              </View>
+            ))}
+
+            {/* Total general */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
+            </View>
+          </>
         )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>Agrega items de la cuenta</Text>
-        }
-      />
-      {/* Total de la cuenta */}
-        {items.length > 0 && (
-        <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
-        </View>
-        )}
+
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -176,41 +226,63 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
   },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
   chip: {
-    backgroundColor: '#E8F0FE',
+    backgroundColor: '#f0f0f0',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
+  },
+  chipSelected: {
+    backgroundColor: '#007AFF', // azul cuando está seleccionado
   },
   chipText: {
-    color: '#007AFF',
+    color: '#333',
     fontWeight: '600',
   },
-  itemRow: {
+  chipTextSelected: {
+    color: '#fff', // blanco cuando está seleccionado
+  },
+  itemCard: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   itemName: {
     fontSize: 16,
+    fontWeight: '600',
   },
   itemPrice: {
     fontSize: 16,
     fontWeight: '600',
     color: '#007AFF',
   },
-  emptyText: {
-    textAlign: 'center',
-    color: '#999',
-    marginTop: 20,
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  summaryName: {
     fontSize: 16,
   },
-
+  summaryAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -218,15 +290,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     borderRadius: 12,
     marginTop: 8,
-    },
+    marginBottom: 32,
+  },
   totalLabel: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-    },
+  },
   totalAmount: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-    },
+  },
 });
