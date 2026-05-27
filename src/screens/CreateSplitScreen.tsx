@@ -1,5 +1,6 @@
 // Importamos useState para manejar el estado de la pantalla
-import { useState } from 'react';
+// Importamos useMemo para memorizar cálculos
+import { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -54,6 +55,12 @@ export default function CreateSplitScreen() {
     setItemNameInput('');
     setItemPriceInput('');
   };
+
+    // Calcula el total sumando todos los precios
+    // useMemo solo recalcula cuando "items" cambia
+    const total = useMemo(() => {
+        return items.reduce((sum, item) => sum + item.price, 0);
+    }, [items]);
 
   return (
     <KeyboardAvoidingView
@@ -121,6 +128,13 @@ export default function CreateSplitScreen() {
           <Text style={styles.emptyText}>Agrega items de la cuenta</Text>
         }
       />
+      {/* Total de la cuenta */}
+        {items.length > 0 && (
+        <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
+        </View>
+        )}
     </KeyboardAvoidingView>
   );
 }
@@ -196,4 +210,23 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
   },
+
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    marginTop: 8,
+    },
+  totalLabel: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    },
+  totalAmount: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    },
 });
