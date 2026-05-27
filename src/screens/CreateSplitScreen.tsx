@@ -4,70 +4,121 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,      // campo de texto para escribir
+  TextInput,
   TouchableOpacity,
-  FlatList,       // lista eficiente para mostrar muchos items
-  KeyboardAvoidingView, // evita que el teclado tape el input
-  Platform,       // detecta si es iOS o Android
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SectionList, // lista que agrupa items en secciones
 } from 'react-native';
 
+// Importamos los tipos que definimos
+import { Person, Item } from '../types';
+
 export default function CreateSplitScreen() {
-  // Estado para el texto que el usuario está escribiendo
-  const [inputName, setInputName] = useState('');
+  // ---- ESTADO DE PERSONAS ----
+  const [personInput, setPersonInput] = useState('');
+  const [people, setPeople] = useState<Person[]>([]);
 
-  // Estado para la lista de personas agregadas
-  // Empieza vacía []
-  const [people, setPeople] = useState<string[]>([]);
+  // ---- ESTADO DE ITEMS ----
+  const [itemNameInput, setItemNameInput] = useState('');
+  const [itemPriceInput, setItemPriceInput] = useState('');
+  const [items, setItems] = useState<Item[]>([]);
 
-  // Función para agregar una persona a la lista
+  // Agrega una persona a la lista
   const addPerson = () => {
-    // No agregar si el input está vacío
-    if (inputName.trim() === '') return;
+    if (personInput.trim() === '') return;
 
-    // Agregamos el nombre a la lista existente
-    setPeople([...people, inputName.trim()]);
+    const newPerson: Person = {
+      id: Date.now().toString(), // usamos la fecha como id único
+      name: personInput.trim(),
+    };
 
-    // Limpiamos el input para el siguiente nombre
-    setInputName('');
+    setPeople([...people, newPerson]);
+    setPersonInput('');
+  };
+
+  // Agrega un item a la lista
+  const addItem = () => {
+    // Validamos que haya nombre y precio válido
+    if (itemNameInput.trim() === '') return;
+    if (isNaN(parseFloat(itemPriceInput))) return;
+
+    const newItem: Item = {
+      id: Date.now().toString(),
+      name: itemNameInput.trim(),
+      price: parseFloat(itemPriceInput),
+    };
+
+    setItems([...items, newItem]);
+    setItemNameInput('');
+    setItemPriceInput('');
   };
 
   return (
-    // KeyboardAvoidingView sube el contenido cuando aparece el teclado
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Text style={styles.title}>¿Quiénes dividen?</Text>
+      {/* ---- SECCIÓN PERSONAS ---- */}
+      <Text style={styles.sectionTitle}>👥 Personas</Text>
 
-      {/* Sección para agregar personas */}
       <View style={styles.inputRow}>
-        {/* Campo de texto donde el usuario escribe el nombre */}
         <TextInput
           style={styles.input}
-          placeholder="Nombre de persona"
-          value={inputName}
-          onChangeText={setInputName} // actualiza inputName en cada letra
-          onSubmitEditing={addPerson} // permite agregar con el botón "return"
+          placeholder="Nombre"
+          value={personInput}
+          onChangeText={setPersonInput}
+          onSubmitEditing={addPerson}
         />
-
-        {/* Botón para agregar la persona */}
         <TouchableOpacity style={styles.addButton} onPress={addPerson}>
           <Text style={styles.addButtonText}>+</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Lista de personas agregadas */}
+      {/* Lista de personas */}
+      {people.map((person) => (
+        <View key={person.id} style={styles.chip}>
+          <Text style={styles.chipText}>{person.name}</Text>
+        </View>
+      ))}
+
+      {/* ---- SECCIÓN ITEMS ---- */}
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>🍽️ Items</Text>
+
+      <View style={styles.inputRow}>
+        {/* Input del nombre del item */}
+        <TextInput
+          style={[styles.input, { flex: 2 }]}
+          placeholder="Item (ej: Pizza)"
+          value={itemNameInput}
+          onChangeText={setItemNameInput}
+        />
+        {/* Input del precio */}
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          placeholder="$0.00"
+          value={itemPriceInput}
+          onChangeText={setItemPriceInput}
+          keyboardType="decimal-pad" // teclado numérico
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addItem}>
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Lista de items */}
       <FlatList
-        data={people}
-        keyExtractor={(item, index) => index.toString()}
+        data={items}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.personItem}>
-            <Text style={styles.personName}>{item}</Text>
+          <View style={styles.itemRow}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
           </View>
         )}
         ListEmptyComponent={
-          // Mensaje cuando la lista está vacía
-          <Text style={styles.emptyText}>Agrega personas para comenzar</Text>
+          <Text style={styles.emptyText}>Agrega items de la cuenta</Text>
         }
       />
     </KeyboardAvoidingView>
@@ -80,19 +131,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
   },
-  title: {
-    fontSize: 24,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
-    marginTop: 10,
+    marginBottom: 12,
   },
   inputRow: {
-    flexDirection: 'row', // pone el input y el botón en la misma fila
-    marginBottom: 20,
-    gap: 10,
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 8,
   },
   input: {
-    flex: 1, // el input ocupa todo el espacio disponible
+    flex: 1,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
@@ -112,19 +162,38 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
   },
-  personItem: {
+  chip: {
+    backgroundColor: '#E8F0FE',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  chipText: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     padding: 16,
     backgroundColor: '#f5f5f5',
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  personName: {
+  itemName: {
     fontSize: 16,
+  },
+  itemPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
   },
   emptyText: {
     textAlign: 'center',
     color: '#999',
-    marginTop: 40,
+    marginTop: 20,
     fontSize: 16,
   },
 });
