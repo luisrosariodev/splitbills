@@ -12,7 +12,8 @@ import {
 } from '../lib/splitService';
 import supabaseClient from '../lib/supabase';
 import { validateDisplayName, validatePassword } from '../lib/validation';
-import { T } from '../lib/theme';
+import { T, GRADIENT } from '../lib/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useScreenAnimation } from '../hooks/useScreenAnimation';
 import PressScale from '../components/PressScale';
 
@@ -104,9 +105,9 @@ export default function ProfileScreen({ navigation }: Props) {
       {/* Identity */}
       <Animated.View style={anims[0]}>
         <View style={s.identityBlock}>
-          <View style={s.avatar}>
+          <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.avatar}>
             <Text style={s.avatarText}>{initial}</Text>
-          </View>
+          </LinearGradient>
           {displayName !== '' && <Text style={s.displayName}>{displayName}</Text>}
           <Text style={s.emailText}>{email}</Text>
         </View>
@@ -204,9 +205,9 @@ export default function ProfileScreen({ navigation }: Props) {
       <Animated.View style={anims[4]}>
         <View style={s.rosarioCard}>
           <View style={s.rosarioHeader}>
-            <View style={s.rosarioMark}>
+            <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.rosarioMark}>
               <Text style={s.rosarioMarkChar}>R</Text>
-            </View>
+            </LinearGradient>
             <View style={s.rosarioMeta}>
               <Text style={s.rosarioName}>rosariodev</Text>
               <Text style={s.rosarioTagline}>Software & Design Studio</Text>
@@ -241,7 +242,7 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text style={s.rosarioLinkArrow}>›</Text>
           </PressScale>
 
-          <Text style={s.rosarioFooter}>Creado con intención.</Text>
+          <Text style={s.rosarioFooter}>rosariodev · divvi</Text>
         </View>
       </Animated.View>
 
@@ -257,10 +258,9 @@ const s = StyleSheet.create({
   identityBlock: { alignItems: 'center', paddingVertical: 28 },
   avatar: {
     width: 72, height: 72, borderRadius: 22,
-    backgroundColor: T.accent,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 14,
-    shadowColor: T.accent,
+    shadowColor: '#6535E8',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 14,
@@ -316,9 +316,9 @@ const s = StyleSheet.create({
   },
   rosarioMark: {
     width: 42, height: 42, borderRadius: 13,
-    backgroundColor: T.accent,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: T.accent,
+    overflow: 'hidden',
+    shadowColor: '#6535E8',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

@@ -23,7 +23,7 @@ import EditSplitScreen from './src/screens/EditSplitScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['splitbills://'],
+  prefixes: ['divvi://'],
   config: {
     screens: {
       Home: '',

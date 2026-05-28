@@ -1,47 +1,48 @@
-// Depth — clean light, rosariodev blue #0B5884
-// rosariodev · SplitBills
+// divvi — cyan #00CFFF → purple #7B2FFF gradient brand
+// rosariodev · divvi
+
+export const GRADIENT = ['#00CFFF', '#7B2FFF'] as const;
 
 export const T = {
   // ── Surfaces ──────────────────────────────────────────────
-  bg:          '#F2F2F7',
+  bg:          '#F8F7FF',   // barely-there purple tint
   surface:     '#FFFFFF',
-  surfaceAlt:  '#F0F4F8',   // inputs — very slight blue tint
-  surfaceHigh: '#F0F4F8',
+  surfaceAlt:  '#F0EFFE',   // inputs — light purple tint
+  surfaceHigh: '#F0EFFE',
   overlay:     '#FFFFFF',
 
   // ── Borders ───────────────────────────────────────────────
-  border:       '#E2E8EE',
-  borderMid:    '#C8D4DC',
-  borderStrong: '#C8D4DC',
+  border:       '#E6E0FF',
+  borderMid:    '#C4B8F5',
+  borderStrong: '#C4B8F5',
 
   // ── Text ─────────────────────────────────────────────────
-  text:     '#0D1B26',   // near-black with blue undertone
-  textSec:  '#607080',   // blue-gray secondary
-  textSub:  '#607080',   // compat alias
-  textDim:  '#A0B0BC',
-  textMuted:'#A0B0BC',   // compat alias
+  text:     '#160C2E',   // near-black, deep purple undertone
+  textSec:  '#6A5D8C',
+  textSub:  '#6A5D8C',   // compat alias
+  textDim:  '#A898C8',
+  textMuted:'#A898C8',   // compat alias
 
-  // ── Accent: rosariodev blue ───────────────────────────────
-  accent:       '#0B5884',
-  accentLight:  '#1478B4',
-  accentDim:    'rgba(11, 88, 132, 0.09)',
-  accentSubtle: 'rgba(11, 88, 132, 0.09)',  // compat
-  accentText:   '#0B5884',
+  // ── Accent: gradient midpoint purple-blue ─────────────────
+  accent:       '#6535E8',
+  accentDim:    'rgba(101, 53, 232, 0.09)',
+  accentSubtle: 'rgba(101, 53, 232, 0.09)',  // compat
+  accentText:   '#6535E8',
 
   // ── Semantic ─────────────────────────────────────────────
-  success:   '#1D9E5C',
-  successBg: 'rgba(29, 158, 92, 0.09)',
+  success:   '#1DB87A',
+  successBg: 'rgba(29, 184, 122, 0.09)',
   warning:   '#D97706',
   warningBg: 'rgba(217, 119, 6, 0.09)',
-  danger:    '#DC2626',
-  dangerBg:  'rgba(220, 38, 38, 0.09)',
+  danger:    '#E53E3E',
+  dangerBg:  'rgba(229, 62, 62, 0.09)',
 
   // ── Brand ────────────────────────────────────────────────
   whatsapp: '#25D366',
 };
 
-// Avatar palette anchored by rosariodev blue
+// Avatar palette — purple-anchored vivid
 export const AVATAR_PALETTE = [
-  '#0B5884', '#1D9E5C', '#D97706',
-  '#DC2626', '#7C3AED', '#0891B2',
+  '#6535E8', '#1DB87A', '#D97706',
+  '#E53E3E', '#00B4D8', '#7B2FFF',
 ];

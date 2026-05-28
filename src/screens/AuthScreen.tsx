@@ -6,9 +6,11 @@ import {
 } from 'react-native';
 import supabaseClient from '../lib/supabase';
 import { validateEmail, validatePassword, sanitize } from '../lib/validation';
-import { T } from '../lib/theme';
+import { T, GRADIENT } from '../lib/theme';
 import { useScreenAnimation } from '../hooks/useScreenAnimation';
 import PressScale from '../components/PressScale';
+import DivviLogo from '../components/DivviLogo';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ERROR_MAP: Record<string, string> = {
   'Invalid login credentials': 'Email o contraseña incorrectos.',
@@ -54,10 +56,15 @@ export default function AuthScreen() {
 
         {/* Brand mark */}
         <Animated.View style={[s.brandWrap, anims[0]]}>
-          <View style={s.logoBox}>
-            <Text style={s.logoChar}>$</Text>
-          </View>
-          <Text style={s.brandName}>splitbills</Text>
+          <LinearGradient
+            colors={GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.logoBox}
+          >
+            <DivviLogo size="sm" showWordmark={false} />
+          </LinearGradient>
+          <DivviLogo size="lg" showWordmark />
           <Text style={s.brandBy}>by rosariodev</Text>
         </Animated.View>
 
@@ -120,16 +127,23 @@ export default function AuthScreen() {
         <Animated.View style={anims[3]}>
           <PressScale
             onPress={handleSubmit}
-            style={[s.btn, loading ? s.btnOff : undefined]}
             haptic="medium"
             disabled={loading}
             accessibilityLabel={mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}
             accessibilityRole="button"
+            style={loading ? s.btnOff : undefined}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={s.btnText}>{mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}</Text>
-            }
+            <LinearGradient
+              colors={GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.btn}
+            >
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={s.btnText}>{mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}</Text>
+              }
+            </LinearGradient>
           </PressScale>
 
           <PressScale
@@ -152,21 +166,17 @@ const s = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: T.bg },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 64 },
 
-  brandWrap: { alignItems: 'center', marginBottom: 52 },
+  brandWrap: { alignItems: 'center', marginBottom: 52, gap: 14 },
   logoBox: {
-    width: 60, height: 60, borderRadius: 19,
-    backgroundColor: T.accent,
+    width: 72, height: 72, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
-    shadowColor: T.accent,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.32,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: '#6535E8',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  logoChar: { color: '#fff', fontSize: 28, fontWeight: '900', letterSpacing: -1 },
-  brandName: { fontSize: 21, fontWeight: '800', color: T.text, letterSpacing: -0.5, marginBottom: 4 },
-  brandBy: { fontSize: 11, fontWeight: '500', color: T.textDim, letterSpacing: 0.6 },
+  brandBy: { fontSize: 11, fontWeight: '500', color: T.textDim, letterSpacing: 0.6, marginTop: -8 },
 
   heading: { fontSize: 36, fontWeight: '800', color: T.text, letterSpacing: -1.1, marginBottom: 8 },
   subheading: { fontSize: 15, color: T.textSec, lineHeight: 22, marginBottom: 36 },
@@ -194,13 +204,8 @@ const s = StyleSheet.create({
   infoText: { color: T.success, fontSize: 13, fontWeight: '500' },
 
   btn: {
-    backgroundColor: T.accent,
     paddingVertical: 17, borderRadius: 15,
     alignItems: 'center', marginBottom: 14,
-    shadowColor: T.accent,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
   },
   btnOff: { opacity: 0.4 },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
