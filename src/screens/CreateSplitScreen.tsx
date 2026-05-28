@@ -201,7 +201,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
   useEffect(() => () => { mountedRef.current = false; }, []);
 
   useEffect(() => {
-    navigation.setOptions({ title: splitName.trim() || 'Nuevo Split' });
+    navigation.setOptions({ title: splitName.trim() || 'Nuevo divvi' });
   }, [splitName, navigation]);
 
   // ── People ───────────────────────────────────────────────
@@ -679,7 +679,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
             {saved && (
               <FadeIn>
                 <View style={styles.successBanner}>
-                  <Text style={styles.successText}>Split guardado</Text>
+                  <Text style={styles.successText}>divvi guardado</Text>
                 </View>
               </FadeIn>
             )}
@@ -697,7 +697,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
                 onPress={handleSave}
                 disabled={saving || saved}
               >
-                <Text style={styles.saveBtnText}>{saving ? 'Guardando...' : 'Guardar Split'}</Text>
+                <Text style={styles.saveBtnText}>{saving ? 'Guardando...' : 'Guardar divvi'}</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.whatsappBtn, pressed && styles.btnPressed]}

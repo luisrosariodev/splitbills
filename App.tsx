@@ -77,7 +77,7 @@ export default function App() {
           {session ? (
             <>
               <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-              <Stack.Screen name="CreateSplit" component={CreateSplitScreen} options={{ title: 'Nuevo Split' }} />
+              <Stack.Screen name="CreateSplit" component={CreateSplitScreen} options={{ title: 'Nuevo divvi' }} />
               <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Historial' }} />
               <Stack.Screen name="SplitDetail" component={SplitDetailScreen}
                 options={({ route }) => ({ title: route.params.splitName })} />

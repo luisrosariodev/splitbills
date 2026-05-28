@@ -108,7 +108,7 @@ export default function HomeScreen({ navigation }: Props) {
           <PressScale
             onPress={() => navigation.navigate('CreateSplit')}
             haptic="medium"
-            accessibilityLabel="Crear nuevo split"
+            accessibilityLabel="Crear nuevo divvi"
             accessibilityRole="button"
           >
             <LinearGradient
@@ -117,7 +117,7 @@ export default function HomeScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={s.primaryBtn}
             >
-              <Text style={s.primaryBtnText}>Nuevo Split</Text>
+              <Text style={s.primaryBtnText}>Nuevo divvi</Text>
             </LinearGradient>
           </PressScale>
         </Animated.View>

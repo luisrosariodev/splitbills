@@ -24,7 +24,7 @@ export const notifySplitSaved = async (splitName: string): Promise<void> => {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Split guardado',
+        title: 'divvi guardado',
         body: `"${splitName}" guardado en tu historial.`,
       },
       trigger: null,
