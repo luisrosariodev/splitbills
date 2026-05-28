@@ -127,7 +127,7 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
             )}
           </View>
         )}
-        <View style={styles.totalRow}>
+        <View style={styles.totalBlock}>
           <Text style={styles.totalLabel}>TOTAL</Text>
           <Text style={styles.totalAmount}>${grandTotal.toFixed(2)}</Text>
         </View>
@@ -188,17 +188,15 @@ const styles = StyleSheet.create({
   summaryRowLast: { borderBottomWidth: 0 },
   summaryName: { fontSize: 15, color: C.text },
   summaryAmount: { fontSize: 15, fontWeight: '600', color: C.text },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    marginTop: 4,
+  totalBlock: {
+    backgroundColor: C.accentDim,
+    borderRadius: 14, paddingHorizontal: 18,
+    paddingTop: 16, paddingBottom: 18,
+    marginTop: 10,
+    alignItems: 'center',
   },
-  totalLabel: { fontSize: 11, fontWeight: '600', color: C.textSub, letterSpacing: 0.8 },
-  totalAmount: { fontSize: 28, fontWeight: '800', color: C.text, letterSpacing: -0.8 },
+  totalLabel: { fontSize: 10, fontWeight: '700', color: C.accentText, letterSpacing: 1.8, marginBottom: 4 },
+  totalAmount: { fontSize: 42, fontWeight: '800', color: C.accent, letterSpacing: -2 },
   breakdownSection: { gap: 4, paddingVertical: 8, borderTopWidth: 1, borderTopColor: C.border, marginTop: 4 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
   breakdownLabel: { fontSize: 13, color: C.textSub },
@@ -208,18 +206,25 @@ const styles = StyleSheet.create({
   whatsappBtn: {
     flex: 2, backgroundColor: C.whatsapp, padding: 16,
     borderRadius: 14, alignItems: 'center',
+    shadowColor: C.whatsapp,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22, shadowRadius: 8,
   },
   whatsappBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   pdfBtn: {
     flex: 1, backgroundColor: C.accent, padding: 16,
     borderRadius: 14, alignItems: 'center',
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22, shadowRadius: 8,
   },
   pdfBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   editBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: C.accent, padding: 16,
+    flex: 1, borderWidth: 1.5, borderColor: C.borderMid, padding: 16,
     borderRadius: 14, alignItems: 'center',
+    backgroundColor: C.surface,
   },
-  editBtnText: { color: C.accent, fontSize: 15, fontWeight: '700' },
+  editBtnText: { color: C.text, fontSize: 15, fontWeight: '700' },
   btnDisabled: { opacity: 0.4 },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.88 },
 });

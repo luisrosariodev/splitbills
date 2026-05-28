@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, TextInput, Pressable,
-  ScrollView, Alert, ActivityIndicator,
+  StyleSheet, Text, View, TextInput,
+  ScrollView, Alert, ActivityIndicator, Linking, Animated,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
@@ -13,6 +13,8 @@ import {
 import supabaseClient from '../lib/supabase';
 import { validateDisplayName, validatePassword } from '../lib/validation';
 import { T } from '../lib/theme';
+import { useScreenAnimation } from '../hooks/useScreenAnimation';
+import PressScale from '../components/PressScale';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -29,6 +31,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const [nameMsg, setNameMsg] = useState('');
   const [pwMsg, setPwMsg] = useState('');
   const [pwError, setPwError] = useState('');
+
+  const anims = useScreenAnimation(5, { stagger: 80, duration: 400, fromY: 18 });
 
   useEffect(() => {
     Promise.all([getProfile(), getUserStats()])
@@ -60,8 +64,7 @@ export default function ProfileScreen({ navigation }: Props) {
     const err = validatePassword(pwInput);
     if (err) { setPwError(err); return; }
     if (pwInput !== pwConfirm) { setPwError('Las contraseñas no coinciden.'); return; }
-    setPwError('');
-    setSavingPw(true); setPwMsg('');
+    setPwError(''); setSavingPw(true); setPwMsg('');
     try {
       await updatePassword(pwInput);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -91,137 +94,256 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const initial = (displayName || email).charAt(0).toUpperCase();
 
-  if (loading) return <View style={s.center}><ActivityIndicator color={T.accent} /></View>;
+  if (loading) return (
+    <View style={s.center}><ActivityIndicator color={T.accent} size="large" /></View>
+  );
 
   return (
     <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
       {/* Identity */}
-      <View style={s.identityBlock}>
-        <View style={s.avatar}><Text style={s.avatarText}>{initial}</Text></View>
-        {displayName !== '' && <Text style={s.displayName}>{displayName}</Text>}
-        <Text style={s.email}>{email}</Text>
-      </View>
+      <Animated.View style={anims[0]}>
+        <View style={s.identityBlock}>
+          <View style={s.avatar}>
+            <Text style={s.avatarText}>{initial}</Text>
+          </View>
+          {displayName !== '' && <Text style={s.displayName}>{displayName}</Text>}
+          <Text style={s.emailText}>{email}</Text>
+        </View>
+      </Animated.View>
 
       {/* Stats */}
       {stats && (
-        <View style={s.statsRow}>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{stats.splitCount}</Text>
-            <Text style={s.statLabel}>SPLITS</Text>
+        <Animated.View style={anims[1]}>
+          <View style={s.statsRow}>
+            <View style={s.statCard}>
+              <Text style={s.statNum}>{stats.splitCount}</Text>
+              <Text style={s.statLabel}>SPLITS</Text>
+            </View>
+            <View style={[s.statCard, { flex: 1.5 }]}>
+              <Text style={s.statNum}>${stats.totalEstimated.toFixed(0)}</Text>
+              <Text style={s.statLabel}>TOTAL DIVIDIDO</Text>
+            </View>
           </View>
-          <View style={[s.statCard, { flex: 1.4 }]}>
-            <Text style={s.statValue}>${stats.totalEstimated.toFixed(0)}</Text>
-            <Text style={s.statLabel}>TOTAL DIVIDIDO</Text>
-          </View>
-        </View>
+        </Animated.View>
       )}
 
-      {/* Display name */}
-      <View style={s.section}>
-        <Text style={s.sectionLabel}>NOMBRE VISIBLE</Text>
-        <TextInput
-          style={s.input}
-          value={nameInput}
-          onChangeText={setNameInput}
-          placeholder="Tu nombre"
-          placeholderTextColor={T.textDim}
-          autoCorrect={false}
-          accessibilityLabel="Nombre visible"
-        />
-        {nameMsg !== '' && <Text style={s.successMsg}>{nameMsg}</Text>}
-        <Pressable
-          style={({ pressed }) => [s.btn, (savingName || nameInput.trim() === displayName) && s.btnOff, pressed && s.pressed]}
-          onPress={handleSaveName}
-          disabled={savingName || nameInput.trim() === displayName}
-          accessibilityRole="button"
-        >
-          <Text style={s.btnText}>{savingName ? 'Guardando...' : 'Guardar nombre'}</Text>
-        </Pressable>
-      </View>
+      {/* Edit profile */}
+      <Animated.View style={anims[2]}>
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>NOMBRE VISIBLE</Text>
+          <TextInput
+            style={s.input}
+            value={nameInput}
+            onChangeText={setNameInput}
+            placeholder="Tu nombre"
+            placeholderTextColor={T.textDim}
+            autoCorrect={false}
+          />
+          {nameMsg !== '' && <Text style={s.successMsg}>{nameMsg}</Text>}
+          <PressScale
+            onPress={handleSaveName}
+            style={[s.btn, (savingName || nameInput.trim() === displayName) && s.btnOff]}
+            haptic="medium"
+            disabled={savingName || nameInput.trim() === displayName}
+          >
+            <Text style={s.btnText}>{savingName ? 'Guardando...' : 'Guardar nombre'}</Text>
+          </PressScale>
+        </View>
 
-      {/* Password */}
-      <View style={s.section}>
-        <Text style={s.sectionLabel}>CAMBIAR CONTRASEÑA</Text>
-        <TextInput style={s.input} value={pwInput} onChangeText={setPwInput} placeholder="Nueva contraseña" placeholderTextColor={T.textDim} secureTextEntry accessibilityLabel="Nueva contraseña" />
-        <TextInput style={[s.input, { marginTop: 8 }]} value={pwConfirm} onChangeText={setPwConfirm} placeholder="Confirmar contraseña" placeholderTextColor={T.textDim} secureTextEntry accessibilityLabel="Confirmar contraseña" />
-        {pwError !== '' && <Text style={s.errorMsg}>{pwError}</Text>}
-        {pwMsg !== '' && <Text style={s.successMsg}>{pwMsg}</Text>}
-        <Pressable
-          style={({ pressed }) => [s.btn, (!pwInput || savingPw) && s.btnOff, pressed && s.pressed]}
-          onPress={handleChangePassword}
-          disabled={savingPw || !pwInput}
-          accessibilityRole="button"
-        >
-          <Text style={s.btnText}>{savingPw ? 'Actualizando...' : 'Cambiar contraseña'}</Text>
-        </Pressable>
-      </View>
+        <View style={[s.section, { marginTop: 12 }]}>
+          <Text style={s.sectionLabel}>CAMBIAR CONTRASEÑA</Text>
+          <TextInput
+            style={s.input}
+            value={pwInput}
+            onChangeText={setPwInput}
+            placeholder="Nueva contraseña"
+            placeholderTextColor={T.textDim}
+            secureTextEntry
+          />
+          <TextInput
+            style={[s.input, { marginTop: 8 }]}
+            value={pwConfirm}
+            onChangeText={setPwConfirm}
+            placeholder="Confirmar contraseña"
+            placeholderTextColor={T.textDim}
+            secureTextEntry
+          />
+          {pwError !== '' && <Text style={s.errorMsg}>{pwError}</Text>}
+          {pwMsg !== '' && <Text style={s.successMsg}>{pwMsg}</Text>}
+          <PressScale
+            onPress={handleChangePassword}
+            style={[s.btn, (!pwInput || savingPw) && s.btnOff]}
+            haptic="medium"
+            disabled={savingPw || !pwInput}
+          >
+            <Text style={s.btnText}>{savingPw ? 'Actualizando...' : 'Cambiar contraseña'}</Text>
+          </PressScale>
+        </View>
+      </Animated.View>
 
-      {/* Actions */}
-      <View style={s.actionList}>
-        <Pressable style={({ pressed }) => [s.actionRow, pressed && s.pressed]} onPress={() => navigation.navigate('Settings')}>
-          <Text style={s.actionLabel}>Configuración</Text>
-          <Text style={s.chevron}>›</Text>
-        </Pressable>
-        <View style={s.divider} />
-        <Pressable style={({ pressed }) => [s.actionRow, pressed && s.pressed]} onPress={handleLogout}>
-          <Text style={[s.actionLabel, { color: T.danger }]}>Cerrar sesión</Text>
-        </Pressable>
-        <View style={s.divider} />
-        <Pressable style={({ pressed }) => [s.actionRow, pressed && s.pressed]} onPress={handleDeleteAccount}>
-          <Text style={[s.actionLabel, { color: T.textDim, fontSize: 13 }]}>Eliminar cuenta y datos</Text>
-        </Pressable>
-      </View>
+      {/* Navigation rows */}
+      <Animated.View style={anims[3]}>
+        <View style={s.rowList}>
+          <PressScale onPress={() => navigation.navigate('Settings')} style={s.row} haptic="light">
+            <Text style={s.rowLabel}>Configuración</Text>
+            <Text style={s.chevron}>›</Text>
+          </PressScale>
+          <View style={s.divider} />
+          <PressScale onPress={handleLogout} style={s.row} haptic="light">
+            <Text style={[s.rowLabel, { color: T.danger }]}>Cerrar sesión</Text>
+          </PressScale>
+          <View style={s.divider} />
+          <PressScale onPress={handleDeleteAccount} style={s.row} haptic="light">
+            <Text style={[s.rowLabel, { color: T.textDim, fontSize: 13 }]}>Eliminar cuenta y datos</Text>
+          </PressScale>
+        </View>
+      </Animated.View>
 
-      <Text style={s.footer}>rosariodev · SplitBills</Text>
+      {/* rosariodev branded section */}
+      <Animated.View style={anims[4]}>
+        <View style={s.rosarioCard}>
+          <View style={s.rosarioHeader}>
+            <View style={s.rosarioMark}>
+              <Text style={s.rosarioMarkChar}>R</Text>
+            </View>
+            <View style={s.rosarioMeta}>
+              <Text style={s.rosarioName}>rosariodev</Text>
+              <Text style={s.rosarioTagline}>Software & Design Studio</Text>
+            </View>
+          </View>
+
+          <View style={s.rosarioDivider} />
+
+          <PressScale
+            onPress={() => Linking.openURL('https://rosariodev.com')}
+            style={s.rosarioLink}
+            haptic="light"
+          >
+            <View style={s.rosarioLinkIcon}>
+              <Text style={s.rosarioLinkIconText}>🌐</Text>
+            </View>
+            <Text style={s.rosarioLinkText}>rosariodev.com</Text>
+            <Text style={s.rosarioLinkArrow}>›</Text>
+          </PressScale>
+
+          <View style={s.rosarioDivider} />
+
+          <PressScale
+            onPress={() => Linking.openURL('mailto:contact@rosariodev.com')}
+            style={s.rosarioLink}
+            haptic="light"
+          >
+            <View style={s.rosarioLinkIcon}>
+              <Text style={s.rosarioLinkIconText}>✉</Text>
+            </View>
+            <Text style={s.rosarioLinkText}>contact@rosariodev.com</Text>
+            <Text style={s.rosarioLinkArrow}>›</Text>
+          </PressScale>
+
+          <Text style={s.rosarioFooter}>Creado con intención.</Text>
+        </View>
+      </Animated.View>
+
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: T.bg },
-  content: { padding: 20, paddingBottom: 60, gap: 14 },
+  content: { padding: 20, paddingBottom: 64, gap: 12 },
   center: { flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' },
 
   identityBlock: { alignItems: 'center', paddingVertical: 28 },
   avatar: {
-    width: 68, height: 68, borderRadius: 20,
-    backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+    width: 72, height: 72, borderRadius: 22,
+    backgroundColor: T.accent,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 14,
+    shadowColor: T.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
   },
-  avatarText: { color: '#fff', fontSize: 28, fontWeight: '900' },
+  avatarText: { color: '#fff', fontSize: 30, fontWeight: '900' },
   displayName: { fontSize: 22, fontWeight: '800', color: T.text, letterSpacing: -0.5, marginBottom: 4 },
-  email: { fontSize: 14, color: T.textSec },
+  emailText: { fontSize: 14, color: T.textSec },
 
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: {
-    flex: 1, backgroundColor: T.surface, borderRadius: 14,
-    padding: 16, gap: 4,
+    flex: 1, backgroundColor: T.surface, borderRadius: 16,
+    padding: 18, borderWidth: 1, borderColor: T.border,
   },
-  statValue: { fontSize: 30, fontWeight: '800', color: T.text, letterSpacing: -1 },
-  statLabel: { fontSize: 9, fontWeight: '700', color: T.textDim, letterSpacing: 1.5 },
+  statNum: { fontSize: 30, fontWeight: '800', color: T.text, letterSpacing: -1, marginBottom: 2 },
+  statLabel: { fontSize: 9, fontWeight: '700', color: T.textDim, letterSpacing: 1.6 },
 
-  section: { backgroundColor: T.surface, borderRadius: 16, padding: 16, gap: 10 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: T.textDim, letterSpacing: 1.4 },
+  section: { backgroundColor: T.surface, borderRadius: 16, padding: 16, gap: 10, borderWidth: 1, borderColor: T.border },
+  sectionLabel: { fontSize: 10, fontWeight: '700', color: T.accent, letterSpacing: 1.6 },
   input: {
     backgroundColor: T.surfaceAlt, borderWidth: 1, borderColor: T.border,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
     fontSize: 16, color: T.text,
   },
   btn: {
     backgroundColor: T.accent, padding: 13, borderRadius: 12,
-    alignItems: 'center', marginTop: 4,
+    alignItems: 'center', marginTop: 2,
+    shadowColor: T.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
   },
-  btnOff: { opacity: 0.35 },
+  btnOff: { opacity: 0.35, shadowOpacity: 0 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
   errorMsg: { color: T.danger, fontSize: 12 },
   successMsg: { color: T.success, fontSize: 12, fontWeight: '600' },
 
-  actionList: { backgroundColor: T.surface, borderRadius: 16, overflow: 'hidden' },
-  actionRow: { paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  actionLabel: { fontSize: 16, color: T.text, fontWeight: '500' },
+  rowList: { backgroundColor: T.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: T.border },
+  row: { paddingHorizontal: 16, paddingVertical: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowLabel: { fontSize: 16, color: T.text, fontWeight: '500' },
   chevron: { fontSize: 20, color: T.textDim },
   divider: { height: 1, backgroundColor: T.border, marginLeft: 16 },
 
-  footer: { textAlign: 'center', fontSize: 11, color: T.textDim, letterSpacing: 0.5, marginTop: 8 },
+  // rosariodev branded card
+  rosarioCard: {
+    backgroundColor: T.surface,
+    borderRadius: 20, overflow: 'hidden',
+    borderWidth: 1.5, borderColor: T.accent + '25',
+  },
+  rosarioHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 18, paddingBottom: 16,
+    backgroundColor: T.accentDim,
+  },
+  rosarioMark: {
+    width: 42, height: 42, borderRadius: 13,
+    backgroundColor: T.accent,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: T.accent,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  rosarioMarkChar: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  rosarioMeta: { flex: 1 },
+  rosarioName: { fontSize: 17, fontWeight: '800', color: T.text, letterSpacing: -0.3 },
+  rosarioTagline: { fontSize: 12, color: T.textSec, marginTop: 1 },
+
+  rosarioDivider: { height: 1, backgroundColor: T.border },
+  rosarioLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 18, paddingVertical: 15,
+  },
+  rosarioLinkIcon: {
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: T.accentDim,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rosarioLinkIconText: { fontSize: 14 },
+  rosarioLinkText: { flex: 1, fontSize: 14, color: T.accent, fontWeight: '600' },
+  rosarioLinkArrow: { fontSize: 18, color: T.textDim },
+
+  rosarioFooter: {
+    textAlign: 'center', fontSize: 11, color: T.textDim,
+    letterSpacing: 0.4, paddingVertical: 14,
+  },
 });

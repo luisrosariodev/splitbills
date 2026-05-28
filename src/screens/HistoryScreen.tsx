@@ -2,7 +2,19 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, ActivityIndicator,
   Pressable, Alert, RefreshControl, TextInput, Modal, Linking,
+  LayoutAnimation, Platform, UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const LAYOUT_SPRING = {
+  duration: 280,
+  create: { type: LayoutAnimation.Types.spring, property: LayoutAnimation.Properties.opacity, springDamping: 0.75 },
+  update: { type: LayoutAnimation.Types.spring, springDamping: 0.75 },
+  delete: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity },
+};
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
@@ -194,6 +206,7 @@ export default function HistoryScreen({ navigation }: Props) {
           try {
             await deleteSplit(split.id);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            LayoutAnimation.configureNext(LAYOUT_SPRING);
             setSplits((p) => p.filter((s) => s.id !== split.id));
           } catch { Alert.alert('Error', 'No se pudo eliminar.'); }
         },
@@ -210,6 +223,7 @@ export default function HistoryScreen({ navigation }: Props) {
           try {
             await deleteGroup(group.id);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            LayoutAnimation.configureNext(LAYOUT_SPRING);
             setGroups((p) => p.filter((g) => g.id !== group.id));
           } catch { Alert.alert('Error', 'No se pudo eliminar.'); }
         },

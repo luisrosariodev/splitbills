@@ -2,8 +2,19 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, TextInput,
   Pressable, ScrollView, Linking, Alert,
-  Animated,
+  Animated, LayoutAnimation, Platform, UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const LAYOUT_SPRING = {
+  duration: 320,
+  create: { type: LayoutAnimation.Types.spring, property: LayoutAnimation.Properties.opacity, springDamping: 0.72 },
+  update: { type: LayoutAnimation.Types.spring, springDamping: 0.72 },
+  delete: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity },
+};
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
@@ -200,6 +211,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
     if (name.length > 80) { setPersonError('Máximo 80 caracteres.'); return; }
     setPersonError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    LayoutAnimation.configureNext(LAYOUT_SPRING);
     setPeople([...people, { id: Date.now().toString(), name }]);
     setPersonInput('');
   };
@@ -210,6 +222,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar', style: 'destructive', onPress: () => {
+          LayoutAnimation.configureNext(LAYOUT_SPRING);
           setPeople((p) => p.filter((x) => x.id !== person.id));
           setItems((prev) => prev.map((item) => ({
             ...item,
@@ -228,6 +241,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
     if (priceErr) { setItemError(priceErr); return; }
     setItemError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    LayoutAnimation.configureNext(LAYOUT_SPRING);
     setItems([...items, {
       id: Date.now().toString(),
       name: sanitize(itemNameInput),
@@ -259,7 +273,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Eliminar item', `¿Eliminar "${item.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => setItems((p) => p.filter((i) => i.id !== item.id)) },
+      { text: 'Eliminar', style: 'destructive', onPress: () => { LayoutAnimation.configureNext(LAYOUT_SPRING); setItems((p) => p.filter((i) => i.id !== item.id)); } },
     ]);
   };
 
