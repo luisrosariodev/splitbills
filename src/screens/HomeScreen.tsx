@@ -1,38 +1,66 @@
-// Importamos las herramientas de React Native que necesitamos
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
+import supabaseClient from '../lib/supabase';
 
-// Importamos el tipo de prop que nos da React Navigation
-// Este prop "navigation" es el que nos permite movernos entre pantallas
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-// Definimos los nombres y parámetros de todas las pantallas de la app
-// Por ahora ninguna pantalla recibe parámetros, por eso es "undefined"
-type RootStackParamList = {
-  Home: undefined;
-  CreateSplit: undefined;
-};
-
-// Definimos el tipo del prop "navigation" específico para HomeScreen
-type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
-
-// El prop "navigation" nos lo da automáticamente React Navigation
-type Props = {
-  navigation: HomeScreenNavigationProp;
+const C = {
+  bg: '#F2F2F7',
+  accent: '#007AFF',
+  text: '#1C1C1E',
+  textSub: '#6C6C70',
+  surface: '#FFFFFF',
+  border: '#E5E5EA',
 };
 
 export default function HomeScreen({ navigation }: Props) {
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => supabaseClient.auth.signOut()}
+          style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}
+          hitSlop={12}
+        >
+          <Text style={{ color: C.accent, fontSize: 16, fontWeight: '500' }}>Salir</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SplitBills</Text>
-      <Text style={styles.subtitle}>Divide cuentas fácilmente</Text>
+      {/* Wordmark */}
+      <View style={styles.wordmark}>
+        <View style={styles.wordmarkIcon}>
+          <Text style={styles.wordmarkIconText}>$</Text>
+        </View>
+        <Text style={styles.wordmarkText}>splitbills</Text>
+      </View>
 
-      {/* Al tocar el botón, navegamos a la pantalla CreateSplit */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.navigate('CreateSplit')}
-      >
-        <Text style={styles.buttonText}>+ Nuevo Split</Text>
-      </TouchableOpacity>
+      <Text style={styles.title}>{'Divide sin\ncomplicarte.'}</Text>
+      <Text style={styles.subtitle}>Agrega, asigna y comparte en segundos.</Text>
+
+      <View style={styles.actions}>
+        <Pressable
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          onPress={() => navigation.navigate('CreateSplit')}
+        >
+          <Text style={styles.primaryBtnText}>Nuevo Split</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+          onPress={() => navigation.navigate('History')}
+        >
+          <Text style={styles.secondaryBtnText}>Ver historial</Text>
+        </Pressable>
+      </View>
+
+      {/* Bottom detail */}
+      <Text style={styles.footerNote}>Propina, IVU y asignaciones individuales incluidas.</Text>
     </View>
   );
 }
@@ -40,29 +68,92 @@ export default function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: C.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  wordmark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 40,
+  },
+  wordmarkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  wordmarkIconText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  wordmarkText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: C.text,
+    letterSpacing: -0.5,
+  },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: 42,
+    fontWeight: '800',
+    color: C.text,
+    textAlign: 'center',
+    letterSpacing: -1.2,
+    lineHeight: 48,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    color: C.textSub,
+    textAlign: 'center',
+    lineHeight: 22,
     marginBottom: 48,
+    maxWidth: 260,
   },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
+  actions: {
+    width: '100%',
+    gap: 10,
   },
-  buttonText: {
+  primaryBtn: {
+    backgroundColor: C.accent,
+    paddingVertical: 17,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  secondaryBtn: {
+    paddingVertical: 15,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.accent,
+  },
+  pressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.88,
+  },
+  primaryBtnText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
+  secondaryBtnText: {
+    color: C.accent,
+    fontSize: 17,
     fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  footerNote: {
+    position: 'absolute',
+    bottom: 40,
+    fontSize: 12,
+    color: C.textSub,
+    textAlign: 'center',
   },
 });
