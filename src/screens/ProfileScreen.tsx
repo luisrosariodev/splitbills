@@ -188,7 +188,7 @@ const s = StyleSheet.create({
     width: 68, height: 68, borderRadius: 20,
     backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
-  avatarText: { color: T.bg, fontSize: 28, fontWeight: '900' },
+  avatarText: { color: '#fff', fontSize: 28, fontWeight: '900' },
   displayName: { fontSize: 22, fontWeight: '800', color: T.text, letterSpacing: -0.5, marginBottom: 4 },
   email: { fontSize: 14, color: T.textSec },
 
@@ -212,7 +212,7 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 4,
   },
   btnOff: { opacity: 0.35 },
-  btnText: { color: T.bg, fontSize: 15, fontWeight: '800' },
+  btnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
   errorMsg: { color: T.danger, fontSize: 12 },
   successMsg: { color: T.success, fontSize: 12, fontWeight: '600' },

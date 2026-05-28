@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 14,
   },
-  logoChar: { color: T.bg, fontSize: 26, fontWeight: '900', letterSpacing: -1 },
+  logoChar: { color: '#fff', fontSize: 26, fontWeight: '900', letterSpacing: -1 },
   brandName: { fontSize: 20, fontWeight: '800', color: T.text, letterSpacing: -0.5, marginBottom: 4 },
   brandBy: { fontSize: 11, fontWeight: '500', color: T.textDim, letterSpacing: 0.5 },
 
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 14,
   },
   btnDisabled: { opacity: 0.4 },
-  btnText: { color: T.bg, fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   switchBtn: { alignItems: 'center', paddingVertical: 12 },
   switchText: { color: T.accentText, fontSize: 15, fontWeight: '600' },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },

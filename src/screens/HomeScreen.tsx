@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     backgroundColor: T.accent,
     alignItems: 'center', justifyContent: 'center',
   },
-  wordmarkChar: { color: T.bg, fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
+  wordmarkChar: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
   wordmarkText: { fontSize: 18, fontWeight: '800', color: T.text, letterSpacing: -0.4 },
 
   avatarBtn: {},
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: T.borderMid,
   },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
-  primaryBtnText: { color: T.bg, fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
+  primaryBtnText: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
   secondaryBtnText: { color: T.textSec, fontSize: 17, fontWeight: '600' },
 
   footer: {

@@ -1,46 +1,46 @@
-// Molten — warm dark premium design system
+// Alpine — clean light Apple-system, indigo accent
 // rosariodev · SplitBills
 
 export const T = {
-  // ── Surfaces (warm near-black, brown undertone) ────────────
-  bg:          '#0E0C09',
-  surface:     '#161310',
-  surfaceAlt:  '#1E1B17',   // inputs, selected states (compat: old surfaceAlt)
-  surfaceHigh: '#1E1B17',
-  overlay:     '#252119',
+  // ── Surfaces ──────────────────────────────────────────────
+  bg:          '#F2F2F7',   // iOS grouped background
+  surface:     '#FFFFFF',
+  surfaceAlt:  '#F8F8FA',   // inputs, secondary fills
+  surfaceHigh: '#F8F8FA',
+  overlay:     '#FFFFFF',
 
   // ── Borders ───────────────────────────────────────────────
-  border:       '#2C2822',
-  borderMid:    '#3D3730',
-  borderStrong: '#3D3730',  // compat alias
+  border:       '#E5E5EA',
+  borderMid:    '#C7C7CC',
+  borderStrong: '#C7C7CC',
 
   // ── Text ─────────────────────────────────────────────────
-  text:     '#F0EAE0',   // primary — warm cream
-  textSec:  '#9A9088',   // secondary
-  textSub:  '#9A9088',   // compat alias
-  textDim:  '#564F49',   // muted
-  textMuted:'#564F49',   // compat alias
+  text:     '#1D1D1F',   // Apple.com primary
+  textSec:  '#6E6E73',   // Apple.com secondary
+  textSub:  '#6E6E73',   // compat alias
+  textDim:  '#AEAEB2',
+  textMuted:'#AEAEB2',   // compat alias
 
-  // ── Accent: vivid coral-orange ────────────────────────────
-  accent:       '#FF5C38',
-  accentDim:    'rgba(255, 92, 56, 0.13)',
-  accentSubtle: 'rgba(255, 92, 56, 0.13)',  // compat alias
-  accentText:   '#FF7A5E',
+  // ── Accent: Apple system indigo — popular 2025 ────────────
+  accent:       '#5856D6',
+  accentDim:    'rgba(88, 86, 214, 0.09)',
+  accentSubtle: 'rgba(88, 86, 214, 0.09)',  // compat alias
+  accentText:   '#5856D6',
 
   // ── Semantic ─────────────────────────────────────────────
-  success:   '#34C97C',
-  successBg: 'rgba(52, 201, 124, 0.12)',
-  warning:   '#F0A030',
-  warningBg: 'rgba(240, 160, 48, 0.13)',
-  danger:    '#FF4040',
-  dangerBg:  'rgba(255, 64, 64, 0.11)',
+  success:   '#34C759',
+  successBg: 'rgba(52, 199, 89, 0.09)',
+  warning:   '#FF9F0A',
+  warningBg: 'rgba(255, 159, 10, 0.09)',
+  danger:    '#FF3B30',
+  dangerBg:  'rgba(255, 59, 48, 0.09)',
 
   // ── Brand ────────────────────────────────────────────────
   whatsapp: '#25D366',
 };
 
-// Avatar palette — vivid colors that pop on dark backgrounds
+// Avatar palette — Apple system colors, vivid on light
 export const AVATAR_PALETTE = [
-  '#FF5C38', '#34C97C', '#F0A030',
-  '#FF4060', '#AF52DE', '#20C8D8',
+  '#5856D6', '#34C759', '#FF9F0A',
+  '#FF3B30', '#AF52DE', '#32ADE6',
 ];

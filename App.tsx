@@ -71,7 +71,7 @@ export default function App() {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <NavigationContainer linking={linking}>
         <Stack.Navigator screenOptions={screenOptions}>
           {session ? (
