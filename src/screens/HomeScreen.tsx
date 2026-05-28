@@ -20,7 +20,7 @@ export default function HomeScreen({ navigation }: Props) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
-          onPress={() => supabaseClient.auth.signOut()}
+          onPress={() => supabaseClient.auth.signOut().catch(() => {})}
           style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}
           hitSlop={12}
         >

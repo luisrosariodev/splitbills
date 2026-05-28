@@ -119,11 +119,7 @@ export default function HistoryScreen({ navigation }: Props) {
     setGrouping(true);
     try {
       const ids = Array.from(selectedIds);
-      const [newGroup, splitDetails] = await Promise.all([
-        createGroup(groupNameInput.trim(), ids),
-        getGroupDetail(''), // placeholder — we'll fetch after
-      ]);
-      // Fetch details for the new group
+      const newGroup = await createGroup(groupNameInput.trim(), ids);
       const details = await getGroupDetail(newGroup.id);
       const msg = buildGroupMessage(groupNameInput.trim(), details);
 

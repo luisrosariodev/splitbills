@@ -45,11 +45,11 @@ const getAddOnAmount = (addon: AddOn, subtotal: number): number => {
   return subtotal * (addon.preset as number) / 100;
 };
 
-const addonLabel = (addon: AddOn): string => {
+const addonLabel = (addon: AddOn, currency = '$'): string => {
   if (addon.preset === 0) return '';
   if (addon.preset === 'custom') {
     const val = parseFloat(addon.customVal) || 0;
-    return addon.mode === 'pct' ? `${val}%` : '';
+    return addon.mode === 'pct' ? `${val}%` : `${currency}${val.toFixed(2)}`;
   }
   return `${addon.preset}%`;
 };
@@ -110,6 +110,8 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   useEffect(() => {
     navigation.setOptions({ title: splitName.trim() || 'Nuevo Split' });
@@ -228,15 +230,17 @@ export default function CreateSplitScreen({ navigation }: Props) {
     setSaveError('');
     try {
       await saveSplt(splitName, people, items, tipAmount, taxAmount);
+      if (!mountedRef.current) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setTimeout(() => { if (mountedRef.current) setSaved(false); }, 3000);
     } catch (err: any) {
+      if (!mountedRef.current) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error('Error al guardar:', JSON.stringify(err, null, 2));
       setSaveError(err?.message || 'Error al guardar. Intenta de nuevo.');
     } finally {
-      setSaving(false);
+      if (mountedRef.current) setSaving(false);
     }
   };
 
@@ -262,8 +266,8 @@ export default function CreateSplitScreen({ navigation }: Props) {
 
     if (tipAmount > 0 || taxAmount > 0) {
       message += `Subtotal: ${fmt(subtotal)}\n`;
-      if (tipAmount > 0) message += `Propina (${addonLabel(tip)}): +${fmt(tipAmount)}\n`;
-      if (taxAmount > 0) message += `Impuesto (${addonLabel(tax)}): +${fmt(taxAmount)}\n`;
+      if (tipAmount > 0) message += `Propina (${addonLabel(tip, currency)}): +${fmt(tipAmount)}\n`;
+      if (taxAmount > 0) message += `Impuesto (${addonLabel(tax, currency)}): +${fmt(taxAmount)}\n`;
     }
     message += `*Total: ${fmt(grandTotal)}*`;
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
@@ -529,13 +533,13 @@ export default function CreateSplitScreen({ navigation }: Props) {
               </View>
               {tipAmount > 0 && (
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Propina ({addonLabel(tip)})</Text>
+                  <Text style={styles.breakdownLabel}>Propina ({addonLabel(tip, currency)})</Text>
                   <Text style={styles.breakdownValue}>+{fmt(tipAmount)}</Text>
                 </View>
               )}
               {taxAmount > 0 && (
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Impuesto ({addonLabel(tax)})</Text>
+                  <Text style={styles.breakdownLabel}>Impuesto ({addonLabel(tax, currency)})</Text>
                   <Text style={styles.breakdownValue}>+{fmt(taxAmount)}</Text>
                 </View>
               )}

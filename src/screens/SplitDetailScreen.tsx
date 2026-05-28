@@ -45,16 +45,20 @@ export default function SplitDetailScreen({ route }: Props) {
   const personMap: Record<string, string> = {};
   detail.people.forEach((p) => { personMap[p.id] = p.name; });
 
+  const subtotal = detail.items.reduce((sum, item) => sum + Number(item.price), 0);
+  const tip = Number(detail.tip_amount ?? 0);
+  const tax = Number(detail.tax_amount ?? 0);
+  const grandTotal = subtotal + tip + tax;
+  const multiplier = subtotal > 0 ? grandTotal / subtotal : 1;
+
   const summary = detail.people.map((person) => ({
     name: person.name,
     total: detail.items.reduce((sum, item) => {
       const assigned = item.item_assignments.map((a) => a.person_id);
       if (!assigned.includes(person.id)) return sum;
       return sum + Number(item.price) / assigned.length;
-    }, 0),
+    }, 0) * multiplier,
   }));
-
-  const grandTotal = detail.items.reduce((sum, item) => sum + Number(item.price), 0);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -91,6 +95,26 @@ export default function SplitDetailScreen({ route }: Props) {
             <Text style={styles.summaryAmount}>${total.toFixed(2)}</Text>
           </View>
         ))}
+        {(tip > 0 || tax > 0) && (
+          <View style={styles.breakdownSection}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Subtotal</Text>
+              <Text style={styles.breakdownValue}>${subtotal.toFixed(2)}</Text>
+            </View>
+            {tip > 0 && (
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Propina</Text>
+                <Text style={styles.breakdownValue}>+${tip.toFixed(2)}</Text>
+              </View>
+            )}
+            {tax > 0 && (
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Impuesto</Text>
+                <Text style={styles.breakdownValue}>+${tax.toFixed(2)}</Text>
+              </View>
+            )}
+          </View>
+        )}
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>TOTAL</Text>
           <Text style={styles.totalAmount}>${grandTotal.toFixed(2)}</Text>
@@ -135,4 +159,8 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 11, fontWeight: '600', color: C.textSub, letterSpacing: 0.8 },
   totalAmount: { fontSize: 28, fontWeight: '800', color: C.text, letterSpacing: -0.8 },
+  breakdownSection: { gap: 4, paddingVertical: 8, borderTopWidth: 1, borderTopColor: C.border, marginTop: 4 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  breakdownLabel: { fontSize: 13, color: C.textSub },
+  breakdownValue: { fontSize: 13, color: C.textSub, fontWeight: '500' },
 });
