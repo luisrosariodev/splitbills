@@ -1,52 +1,83 @@
-import { useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { StyleSheet, Text, View, Pressable, Animated } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import supabaseClient from '../lib/supabase';
+import { getQueueCount } from '../lib/offlineQueue';
+import { T } from '../lib/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-const C = {
-  bg: '#F2F2F7',
-  accent: '#007AFF',
-  text: '#1C1C1E',
-  textSub: '#6C6C70',
-  surface: '#FFFFFF',
-  border: '#E5E5EA',
-};
-
 export default function HomeScreen({ navigation }: Props) {
+  const [userInitial, setUserInitial] = useState('?');
+  const [queueCount, setQueueCount] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
+
   useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          onPress={() => supabaseClient.auth.signOut().catch(() => {})}
-          style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}
-          hitSlop={12}
-        >
-          <Text style={{ color: C.accent, fontSize: 16, fontWeight: '500' }}>Salir</Text>
-        </Pressable>
-      ),
+    supabaseClient.auth.getUser().then(({ data: { user } }) => {
+      setUserInitial((user?.email ?? '').charAt(0).toUpperCase());
     });
-  }, [navigation]);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, delay: 80, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 420, delay: 80, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    getQueueCount().then(setQueueCount).catch(() => {});
+  }, []));
 
   return (
     <View style={styles.container}>
-      {/* Wordmark */}
-      <View style={styles.wordmark}>
-        <View style={styles.wordmarkIcon}>
-          <Text style={styles.wordmarkIconText}>$</Text>
+      {/* Header row */}
+      <View style={styles.header}>
+        <View style={styles.wordmark}>
+          <View style={styles.wordmarkIcon}>
+            <Text style={styles.wordmarkChar}>$</Text>
+          </View>
+          <Text style={styles.wordmarkText}>splitbills</Text>
         </View>
-        <Text style={styles.wordmarkText}>splitbills</Text>
+        <Pressable
+          onPress={() => navigation.navigate('Profile')}
+          style={({ pressed }) => [styles.avatarBtn, pressed && { opacity: 0.6 }]}
+          accessibilityLabel="Ir al perfil"
+          accessibilityRole="button"
+          hitSlop={12}
+        >
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarInitial}>{userInitial}</Text>
+          </View>
+        </Pressable>
       </View>
 
-      <Text style={styles.title}>{'Divide sin\ncomplicarte.'}</Text>
-      <Text style={styles.subtitle}>Agrega, asigna y comparte en segundos.</Text>
+      {/* Hero content */}
+      <Animated.View style={[styles.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <Text style={styles.eyebrow}>ROSARIODEV</Text>
+        <Text style={styles.title}>{'Divide sin\ncomplicarte.'}</Text>
+        <Text style={styles.subtitle}>
+          Agrega personas, asigna items, comparte en segundos.
+        </Text>
+      </Animated.View>
 
-      <View style={styles.actions}>
+      {/* Actions */}
+      <Animated.View style={[styles.actions, { opacity: fadeAnim }]}>
+        {queueCount > 0 && (
+          <View style={styles.queueBadge}>
+            <View style={styles.queueDot} />
+            <Text style={styles.queueText}>
+              {queueCount} split{queueCount > 1 ? 's' : ''} pendiente{queueCount > 1 ? 's' : ''} de sincronizar
+            </Text>
+          </View>
+        )}
+
         <Pressable
           style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
           onPress={() => navigation.navigate('CreateSplit')}
+          accessibilityLabel="Crear nuevo split"
+          accessibilityRole="button"
         >
           <Text style={styles.primaryBtnText}>Nuevo Split</Text>
         </Pressable>
@@ -54,13 +85,14 @@ export default function HomeScreen({ navigation }: Props) {
         <Pressable
           style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
           onPress={() => navigation.navigate('History')}
+          accessibilityLabel="Ver historial de splits"
+          accessibilityRole="button"
         >
           <Text style={styles.secondaryBtnText}>Ver historial</Text>
         </Pressable>
-      </View>
+      </Animated.View>
 
-      {/* Bottom detail */}
-      <Text style={styles.footerNote}>Propina, IVU y asignaciones individuales incluidas.</Text>
+      <Text style={styles.footer}>Propina · IVU · Asignaciones individuales</Text>
     </View>
   );
 }
@@ -68,92 +100,81 @@ export default function HomeScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
+    backgroundColor: T.bg,
+    paddingHorizontal: 24,
+    paddingTop: 64,
+    paddingBottom: 48,
   },
-  wordmark: {
+
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 40,
+    justifyContent: 'space-between',
+    marginBottom: 56,
   },
+  wordmark: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   wordmarkIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: C.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: T.accent,
+    alignItems: 'center', justifyContent: 'center',
   },
-  wordmarkIconText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  wordmarkChar: { color: T.bg, fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
+  wordmarkText: { fontSize: 18, fontWeight: '800', color: T.text, letterSpacing: -0.4 },
+
+  avatarBtn: {},
+  avatarCircle: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: T.surfaceHigh,
+    borderWidth: 1, borderColor: T.borderMid,
+    alignItems: 'center', justifyContent: 'center',
   },
-  wordmarkText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: C.text,
-    letterSpacing: -0.5,
+  avatarInitial: { color: T.text, fontSize: 14, fontWeight: '700' },
+
+  hero: { flex: 1, justifyContent: 'center' },
+  eyebrow: {
+    fontSize: 10, fontWeight: '700', color: T.accent,
+    letterSpacing: 2.5, marginBottom: 20,
   },
   title: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: C.text,
-    textAlign: 'center',
-    letterSpacing: -1.2,
-    lineHeight: 48,
-    marginBottom: 12,
+    fontSize: 52, fontWeight: '800', color: T.text,
+    letterSpacing: -2, lineHeight: 56,
+    marginBottom: 18,
   },
   subtitle: {
-    fontSize: 15,
-    color: C.textSub,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 48,
-    maxWidth: 260,
+    fontSize: 16, color: T.textSec,
+    lineHeight: 24, maxWidth: 280,
   },
-  actions: {
-    width: '100%',
-    gap: 10,
+
+  actions: { gap: 10, paddingBottom: 8 },
+  queueBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: T.warningBg,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 4,
   },
+  queueDot: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: T.warning,
+  },
+  queueText: { color: T.warning, fontSize: 13, fontWeight: '600', flex: 1 },
+
   primaryBtn: {
-    backgroundColor: C.accent,
-    paddingVertical: 17,
-    borderRadius: 16,
+    backgroundColor: T.accent,
+    paddingVertical: 18, borderRadius: 16,
     alignItems: 'center',
   },
   secondaryBtn: {
-    paddingVertical: 15,
-    borderRadius: 16,
+    paddingVertical: 16, borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: C.accent,
+    borderWidth: 1.5, borderColor: T.borderMid,
   },
-  pressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.88,
-  },
-  primaryBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.1,
-  },
-  secondaryBtnText: {
-    color: C.accent,
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  footerNote: {
-    position: 'absolute',
-    bottom: 40,
-    fontSize: 12,
-    color: C.textSub,
-    textAlign: 'center',
+  pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
+  primaryBtnText: { color: T.bg, fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
+  secondaryBtnText: { color: T.textSec, fontSize: 17, fontWeight: '600' },
+
+  footer: {
+    textAlign: 'center', fontSize: 11,
+    color: T.textDim, letterSpacing: 0.5,
+    marginTop: 20,
   },
 });

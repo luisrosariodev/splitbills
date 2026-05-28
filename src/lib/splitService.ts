@@ -1,5 +1,7 @@
 import supabaseClient from './supabase';
 import { Person, Item } from '../types';
+import { getQueue, removeFromQueue } from './offlineQueue';
+import { notifyQueueSynced } from './notifications';
 
 // ── Splits ────────────────────────────────────────────────
 
@@ -88,6 +90,53 @@ export const saveSplt = async (
   return splitData;
 };
 
+export const updateSplit = async (
+  splitId: string,
+  title: string,
+  people: Person[],
+  items: Item[],
+  tipAmount = 0,
+  taxAmount = 0,
+): Promise<void> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) throw new Error('No autenticado');
+
+  await supabaseClient.from('splits')
+    .update({ name: title, tip_amount: tipAmount, tax_amount: taxAmount })
+    .eq('id', splitId).eq('user_id', user.id);
+
+  // Get existing item IDs to delete their assignments first
+  const { data: existingItems } = await supabaseClient
+    .from('items').select('id').eq('split_id', splitId);
+  const existingItemIds = (existingItems ?? []).map((i) => i.id);
+  if (existingItemIds.length > 0) {
+    await supabaseClient.from('item_assignments').delete().in('item_id', existingItemIds);
+  }
+  await supabaseClient.from('people').delete().eq('split_id', splitId);
+  await supabaseClient.from('items').delete().eq('split_id', splitId);
+
+  const { data: savedPeople, error: peopleErr } = await supabaseClient
+    .from('people').insert(people.map((p) => ({ split_id: splitId, name: p.name }))).select();
+  if (peopleErr) throw peopleErr;
+
+  const localToDb: Record<string, string> = {};
+  people.forEach((p, i) => { localToDb[p.id] = savedPeople[i].id; });
+
+  const { data: savedItems, error: itemsErr } = await supabaseClient
+    .from('items').insert(items.map((i) => ({ split_id: splitId, name: i.name, price: i.price }))).select();
+  if (itemsErr) throw itemsErr;
+
+  const assignments = savedItems.flatMap((savedItem, idx) =>
+    items[idx].assignedTo
+      .filter((lid) => localToDb[lid])
+      .map((lid) => ({ item_id: savedItem.id, person_id: localToDb[lid] }))
+  );
+  if (assignments.length > 0) {
+    const { error } = await supabaseClient.from('item_assignments').insert(assignments);
+    if (error) throw error;
+  }
+};
+
 // ── Groups ────────────────────────────────────────────────
 
 export const getGroups = async () => {
@@ -127,6 +176,33 @@ export const deleteGroup = async (groupId: string) => {
   if (!user) throw new Error('No autenticado');
   const { error } = await supabaseClient
     .from('groups').delete().eq('id', groupId).eq('user_id', user.id);
+  if (error) throw error;
+};
+
+export const updateSplitName = async (splitId: string, name: string): Promise<void> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) throw new Error('No autenticado');
+  const { error } = await supabaseClient
+    .from('splits').update({ name }).eq('id', splitId).eq('user_id', user.id);
+  if (error) throw error;
+};
+
+export const getUserStats = async (): Promise<{ splitCount: number; totalEstimated: number }> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) throw new Error('No autenticado');
+  const { data, error } = await supabaseClient
+    .from('splits').select('tip_amount, tax_amount, items(price)').eq('user_id', user.id);
+  if (error) throw error;
+  const totalEstimated = (data ?? []).reduce((sum, s) => {
+    const items = (s.items as Array<{ price: string }>) ?? [];
+    return sum + items.reduce((s2, i) => s2 + Number(i.price), 0)
+      + Number(s.tip_amount ?? 0) + Number(s.tax_amount ?? 0);
+  }, 0);
+  return { splitCount: (data ?? []).length, totalEstimated };
+};
+
+export const updatePassword = async (newPassword: string): Promise<void> => {
+  const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
   if (error) throw error;
 };
 
@@ -254,6 +330,24 @@ export const buildGroupMessage = (groupName: string, splits: SplitDetail[], curr
   });
   msg += `*Total general: ${fmt(Object.values(personMap).reduce((s, p) => s + p.total, 0))}*`;
   return msg;
+};
+
+// ── Offline sync ──────────────────────────────────────────
+
+export const syncOfflineQueue = async (): Promise<void> => {
+  const queue = await getQueue();
+  if (queue.length === 0) return;
+  let synced = 0;
+  for (const entry of queue) {
+    try {
+      await saveSplt(entry.title, entry.people, entry.items, entry.tipAmount, entry.taxAmount);
+      await removeFromQueue(entry.id);
+      synced++;
+    } catch {
+      break;
+    }
+  }
+  if (synced > 0) await notifyQueueSynced(synced);
 };
 
 // ── PDF ───────────────────────────────────────────────────

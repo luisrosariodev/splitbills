@@ -5,4 +5,7 @@ export type RootStackParamList = {
   History: undefined;
   SplitDetail: { splitId: string; splitName: string };
   GroupDetail: { groupId: string; groupName: string };
+  Profile: undefined;
+  Settings: undefined;
+  EditSplit: { splitId: string; splitName: string };
 };

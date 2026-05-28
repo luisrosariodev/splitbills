@@ -1,31 +1,27 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, Linking, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
-import { getSplitDetail } from '../lib/splitService';
+import { getSplitDetail, buildSingleMessage, generateSplitHTML } from '../lib/splitService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SplitDetail'>;
 
-const C = {
-  bg: '#F2F2F7',
-  surface: '#FFFFFF',
-  border: '#E5E5EA',
-  accent: '#007AFF',
-  text: '#1C1C1E',
-  textSub: '#6C6C70',
-  textMuted: '#AEAEB2',
-};
+import { T as C } from '../lib/theme';
 
 type Detail = Awaited<ReturnType<typeof getSplitDetail>>;
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export default function SplitDetailScreen({ route }: Props) {
+export default function SplitDetailScreen({ route, navigation }: Props) {
   const { splitId } = route.params;
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     getSplitDetail(splitId)
@@ -33,6 +29,22 @@ export default function SplitDetailScreen({ route }: Props) {
       .catch(() => setError('No se pudo cargar el split.'))
       .finally(() => setLoading(false));
   }, [splitId]);
+
+  const handleExportPdf = async () => {
+    if (!detail) return;
+    setExportingPdf(true);
+    try {
+      const { uri } = await Print.printToFileAsync({ html: generateSplitHTML(detail) });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert('Error', 'No se pudo exportar el PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const handleNavigateEdit = () => navigation.navigate('EditSplit', { splitId, splitName: route.params.splitName });
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color={C.accent} /></View>;
@@ -120,6 +132,34 @@ export default function SplitDetailScreen({ route }: Props) {
           <Text style={styles.totalAmount}>${grandTotal.toFixed(2)}</Text>
         </View>
       </View>
+
+      <View style={styles.actionRow}>
+        <Pressable
+          style={({ pressed }) => [styles.whatsappBtn, pressed && styles.pressed]}
+          onPress={() => Linking.openURL(`https://wa.me/?text=${encodeURIComponent(buildSingleMessage(detail))}`)}
+          accessibilityLabel="Compartir por WhatsApp"
+          accessibilityRole="button"
+        >
+          <Text style={styles.whatsappBtnText}>WhatsApp</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.pdfBtn, exportingPdf && styles.btnDisabled, pressed && styles.pressed]}
+          onPress={handleExportPdf}
+          disabled={exportingPdf}
+          accessibilityLabel="Exportar como PDF"
+          accessibilityRole="button"
+        >
+          <Text style={styles.pdfBtnText}>{exportingPdf ? '...' : 'PDF'}</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
+          onPress={handleNavigateEdit}
+          accessibilityLabel="Editar split"
+          accessibilityRole="button"
+        >
+          <Text style={styles.editBtnText}>Editar</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -128,7 +168,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 60, gap: 12 },
   center: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
-  errorText: { color: '#FF3B30', fontSize: 15 },
+  errorText: { color: C.danger, fontSize: 15 },
   date: { fontSize: 13, color: C.textSub, marginBottom: 4 },
   card: { backgroundColor: C.surface, borderRadius: 16, padding: 16 },
   label: { fontSize: 11, fontWeight: '600', color: C.textSub, letterSpacing: 0.8 },
@@ -163,4 +203,23 @@ const styles = StyleSheet.create({
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
   breakdownLabel: { fontSize: 13, color: C.textSub },
   breakdownValue: { fontSize: 13, color: C.textSub, fontWeight: '500' },
+
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  whatsappBtn: {
+    flex: 2, backgroundColor: C.whatsapp, padding: 16,
+    borderRadius: 14, alignItems: 'center',
+  },
+  whatsappBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  pdfBtn: {
+    flex: 1, backgroundColor: C.accent, padding: 16,
+    borderRadius: 14, alignItems: 'center',
+  },
+  pdfBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  editBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: C.accent, padding: 16,
+    borderRadius: 14, alignItems: 'center',
+  },
+  editBtnText: { color: C.accent, fontSize: 15, fontWeight: '700' },
+  btnDisabled: { opacity: 0.4 },
+  pressed: { transform: [{ scale: 0.97 }], opacity: 0.88 },
 });

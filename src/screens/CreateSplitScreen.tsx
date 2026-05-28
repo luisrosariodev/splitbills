@@ -9,28 +9,19 @@ import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
 import { Person, Item } from '../types';
 import { saveSplt } from '../lib/splitService';
+import { addToQueue } from '../lib/offlineQueue';
+import { notifySplitSaved } from '../lib/notifications';
+import { validateSplitName, validateItemName, validatePrice, sanitize } from '../lib/validation';
+import { getDefaultCurrency, getDefaultTip } from '../lib/settings';
+import * as ImagePicker from 'expo-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateSplit'>;
 
-const C = {
-  bg: '#F2F2F7',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F9F9FB',
-  border: '#E5E5EA',
-  accent: '#007AFF',
-  accentSubtle: '#EBF4FF',
-  success: '#30D158',
-  whatsapp: '#25D366',
-  text: '#1C1C1E',
-  textSub: '#6C6C70',
-  textMuted: '#AEAEB2',
-  danger: '#FF3B30',
-};
+import { T as C, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
 
 const CURRENCIES = ['$', '€', '£', '¥'];
 const TIP_PRESETS = [10, 15, 18, 20];
 const TAX_PRESETS = [7, 11.5];
-const AVATAR_COLORS = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#AF52DE', '#00C7BE'];
 
 type AddOnPreset = 0 | number | 'custom';
 type AddOnMode = 'pct' | 'amt';
@@ -103,12 +94,97 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const [tip, setTip] = useState<AddOn>({ preset: 0, mode: 'pct', customVal: '' });
   const [tax, setTax] = useState<AddOn>({ preset: 0, mode: 'pct', customVal: '' });
 
+  useEffect(() => {
+    Promise.all([getDefaultCurrency(), getDefaultTip()]).then(([c, t]) => {
+      setCurrency(c);
+      if (t > 0) setTip({ preset: t, mode: 'pct', customVal: '' });
+    }).catch(() => {});
+  }, []);
+
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
+  const [personError, setPersonError] = useState('');
+  const [itemError, setItemError] = useState('');
+
+  const [scanningReceipt, setScanningReceipt] = useState(false);
+
+  const handleScanReceipt = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos para escanear el recibo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]?.base64) return;
+
+    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_VISION_KEY;
+    if (!apiKey) {
+      Alert.alert('OCR no configurado', 'Agrega EXPO_PUBLIC_GOOGLE_VISION_KEY en tu .env para usar esta función.');
+      return;
+    }
+
+    setScanningReceipt(true);
+    try {
+      const res = await fetch(
+        `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{
+              image: { content: result.assets[0].base64 },
+              features: [{ type: 'TEXT_DETECTION' }],
+            }],
+          }),
+        },
+      );
+      const data = await res.json();
+      const text: string = data?.responses?.[0]?.fullTextAnnotation?.text ?? '';
+      const parsed = parseReceiptText(text);
+      if (parsed.length === 0) {
+        Alert.alert('Sin resultados', 'No se pudieron detectar items en el recibo. Intenta con una foto más clara.');
+        return;
+      }
+      setItems((prev) => [
+        ...prev,
+        ...parsed.map((p) => ({ id: Date.now().toString() + Math.random(), ...p, assignedTo: [] })),
+      ]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert('Error', 'No se pudo procesar el recibo.');
+    } finally {
+      setScanningReceipt(false);
+    }
+  };
+
+  const parseReceiptText = (text: string): Array<{ name: string; price: number }> => {
+    const results: Array<{ name: string; price: number }> = [];
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const pricePattern = /\$?\s*(\d{1,5}[.,]\d{2})/;
+    const skipWords = /^(total|subtotal|tax|iva|ivu|tip|propina|impuesto|change|cash|card|visa|mastercard|amex|gracias|thank|receipt|recibo|date|fecha)/i;
+    lines.forEach((line) => {
+      if (skipWords.test(line)) return;
+      const match = line.match(pricePattern);
+      if (!match) return;
+      const price = parseFloat(match[1].replace(',', '.'));
+      if (isNaN(price) || price <= 0 || price > 999) return;
+      const name = line.replace(match[0], '').replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑa-z0-9 ]/g, ' ').trim();
+      if (name.length < 2) return;
+      results.push({ name: name.slice(0, 60), price });
+    });
+    return results;
+  };
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [queued, setQueued] = useState(false);
   const [saveError, setSaveError] = useState('');
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
@@ -119,9 +195,12 @@ export default function CreateSplitScreen({ navigation }: Props) {
 
   // ── People ───────────────────────────────────────────────
   const addPerson = () => {
-    if (personInput.trim() === '') return;
+    const name = sanitize(personInput);
+    if (!name) return;
+    if (name.length > 80) { setPersonError('Máximo 80 caracteres.'); return; }
+    setPersonError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPeople([...people, { id: Date.now().toString(), name: personInput.trim() }]);
+    setPeople([...people, { id: Date.now().toString(), name }]);
     setPersonInput('');
   };
 
@@ -143,12 +222,15 @@ export default function CreateSplitScreen({ navigation }: Props) {
 
   // ── Items ────────────────────────────────────────────────
   const addItem = () => {
-    if (itemNameInput.trim() === '') return;
-    if (isNaN(parseFloat(itemPriceInput))) return;
+    const nameErr = validateItemName(itemNameInput);
+    if (nameErr) { setItemError(nameErr); return; }
+    const priceErr = validatePrice(itemPriceInput);
+    if (priceErr) { setItemError(priceErr); return; }
+    setItemError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setItems([...items, {
       id: Date.now().toString(),
-      name: itemNameInput.trim(),
+      name: sanitize(itemNameInput),
       price: parseFloat(itemPriceInput),
       assignedTo: [],
     }]);
@@ -219,26 +301,41 @@ export default function CreateSplitScreen({ navigation }: Props) {
   }, [people, items, grandTotal, subtotal]);
 
   // ── Save ─────────────────────────────────────────────────
+  const isNetworkError = (e: any): boolean => {
+    const msg = (e?.message ?? '').toLowerCase();
+    return msg.includes('network request failed') || msg.includes('failed to fetch');
+  };
+
   const handleSave = async () => {
-    if (splitName.trim() === '') {
+    const nameErr = validateSplitName(splitName);
+    if (nameErr) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Falta el nombre', 'Ponle un nombre al split antes de guardar.');
+      Alert.alert('Nombre inválido', nameErr);
       return;
     }
     setSaving(true);
     setSaved(false);
+    setQueued(false);
     setSaveError('');
     try {
       await saveSplt(splitName, people, items, tipAmount, taxAmount);
       if (!mountedRef.current) return;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notifySplitSaved(splitName);
       setSaved(true);
       setTimeout(() => { if (mountedRef.current) setSaved(false); }, 3000);
     } catch (err: any) {
       if (!mountedRef.current) return;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      console.error('Error al guardar:', JSON.stringify(err, null, 2));
-      setSaveError(err?.message || 'Error al guardar. Intenta de nuevo.');
+      if (isNetworkError(err)) {
+        await addToQueue(splitName, people, items, tipAmount, taxAmount);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setQueued(true);
+        setTimeout(() => { if (mountedRef.current) setQueued(false); }, 5000);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        console.error('Error al guardar:', JSON.stringify(err, null, 2));
+        setSaveError(err?.message || 'Error al guardar. Intenta de nuevo.');
+      }
     } finally {
       if (mountedRef.current) setSaving(false);
     }
@@ -380,6 +477,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
             <Text style={styles.addBtnText}>+</Text>
           </Pressable>
         </View>
+        {personError !== '' && <Text style={styles.inlineError}>{personError}</Text>}
         {people.length === 0
           ? <Text style={styles.emptyHint}>Agrega personas para asignar items.</Text>
           : (
@@ -406,11 +504,22 @@ export default function CreateSplitScreen({ navigation }: Props) {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.label}>ITEMS</Text>
-          {people.length > 0 && items.length > 0 && (
-            <Pressable style={({ pressed }) => [styles.equalBtn, pressed && styles.btnPressed]} onPress={equalSplit}>
-              <Text style={styles.equalBtnText}>Dividir igual</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              style={({ pressed }) => [styles.equalBtn, pressed && styles.btnPressed]}
+              onPress={handleScanReceipt}
+              disabled={scanningReceipt}
+              accessibilityLabel="Escanear recibo con cámara"
+              accessibilityRole="button"
+            >
+              <Text style={styles.equalBtnText}>{scanningReceipt ? '...' : 'Escanear'}</Text>
             </Pressable>
-          )}
+            {people.length > 0 && items.length > 0 && (
+              <Pressable style={({ pressed }) => [styles.equalBtn, pressed && styles.btnPressed]} onPress={equalSplit} accessibilityLabel="Dividir igual entre todos" accessibilityRole="button">
+                <Text style={styles.equalBtnText}>Dividir igual</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
         <View style={styles.row}>
           <TextInput
@@ -433,6 +542,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
           </Pressable>
         </View>
 
+        {itemError !== '' && <Text style={styles.inlineError}>{itemError}</Text>}
         {items.length === 0
           ? <Text style={styles.emptyHint}>Agrega items para calcular el split.</Text>
           : items.map((item, idx) => (
@@ -559,6 +669,13 @@ export default function CreateSplitScreen({ navigation }: Props) {
                 </View>
               </FadeIn>
             )}
+            {queued && (
+              <FadeIn>
+                <View style={styles.queuedBanner}>
+                  <Text style={styles.queuedText}>Sin conexión — se sincronizará al reconectar</Text>
+                </View>
+              </FadeIn>
+            )}
 
             <View style={styles.actionButtons}>
               <Pressable
@@ -680,15 +797,22 @@ const styles = StyleSheet.create({
 
   errorText: { color: C.danger, fontSize: 13, textAlign: 'center', marginBottom: 10 },
   successBanner: {
-    backgroundColor: '#EDFAF2', borderWidth: 1, borderColor: '#A8E6C0',
-    borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginBottom: 12,
+    backgroundColor: C.successBg, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center', marginBottom: 12,
   },
-  successText: { color: '#1A7A40', fontSize: 14, fontWeight: '600' },
+  successText: { color: C.success, fontSize: 14, fontWeight: '600' },
 
   actionButtons: { gap: 10 },
   saveBtn: { backgroundColor: C.success, padding: 16, borderRadius: 14, alignItems: 'center' },
   saveBtnDisabled: { backgroundColor: C.textMuted },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.1 },
+  saveBtnText: { color: C.bg, fontSize: 16, fontWeight: '800', letterSpacing: 0.1 },
   whatsappBtn: { backgroundColor: C.whatsapp, padding: 16, borderRadius: 14, alignItems: 'center' },
-  whatsappBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.1 },
+  whatsappBtnText: { color: C.bg, fontSize: 16, fontWeight: '700', letterSpacing: 0.1 },
+
+  inlineError: { color: C.danger, fontSize: 12, marginTop: 6 },
+  queuedBanner: {
+    backgroundColor: C.warningBg, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center', marginBottom: 12,
+  },
+  queuedText: { color: C.warning, fontSize: 13, fontWeight: '600' },
 });

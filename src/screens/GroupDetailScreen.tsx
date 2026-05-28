@@ -9,18 +9,7 @@ import { getGroupDetail, buildGroupMessage, SplitDetail } from '../lib/splitServ
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
-const C = {
-  bg: '#F2F2F7',
-  surface: '#FFFFFF',
-  border: '#E5E5EA',
-  accent: '#007AFF',
-  whatsapp: '#25D366',
-  text: '#1C1C1E',
-  textSub: '#6C6C70',
-  textMuted: '#AEAEB2',
-  danger: '#FF3B30',
-};
-const AVATAR_COLORS = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#AF52DE', '#00C7BE'];
+import { T as C, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
 const avatarColor = (idx: number) => AVATAR_COLORS[idx % AVATAR_COLORS.length];
 const initials = (name: string) => name.trim().charAt(0).toUpperCase();
 const fmt = (n: number) => `$${n.toFixed(2)}`;

@@ -1,27 +1,11 @@
 import { useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
+  StyleSheet, Text, View, TextInput, Pressable,
+  KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 import supabaseClient from '../lib/supabase';
-
-const C = {
-  bg: '#F2F2F7',
-  surface: '#FFFFFF',
-  border: '#E5E5EA',
-  accent: '#007AFF',
-  text: '#1C1C1E',
-  textSub: '#6C6C70',
-  textMuted: '#AEAEB2',
-  danger: '#FF3B30',
-  surfaceAlt: '#F9F9FB',
-};
+import { validateEmail, validatePassword, sanitize } from '../lib/validation';
+import { T } from '../lib/theme';
 
 const ERROR_MAP: Record<string, string> = {
   'Invalid login credentials': 'Email o contraseña incorrectos.',
@@ -38,17 +22,21 @@ export default function AuthScreen() {
   const [info, setInfo] = useState('');
 
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) return;
+    const emailErr = validateEmail(email);
+    if (emailErr) { setError(emailErr); return; }
+    const pwErr = validatePassword(password);
+    if (pwErr) { setError(pwErr); return; }
     setLoading(true);
     setError('');
     setInfo('');
 
     try {
+      const cleanEmail = sanitize(email).toLowerCase();
       if (mode === 'login') {
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email: cleanEmail, password });
         if (error) throw error;
       } else {
-        const { error } = await supabaseClient.auth.signUp({ email, password });
+        const { error } = await supabaseClient.auth.signUp({ email: cleanEmail, password });
         if (error) throw error;
         setInfo('Revisa tu email para confirmar tu cuenta.');
       }
@@ -65,130 +53,163 @@ export default function AuthScreen() {
       style={styles.wrapper}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.container}>
-        <Text style={styles.eyebrow}>SPLIT BILLS</Text>
-        <Text style={styles.title}>
-          {mode === 'login' ? 'Bienvenido.' : 'Crea tu cuenta.'}
-        </Text>
-
-        <View style={styles.card}>
-          <Text style={styles.label}>EMAIL</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="tu@email.com"
-            placeholderTextColor={C.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Text style={[styles.label, { marginTop: 14 }]}>CONTRASENA</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor={C.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Brand */}
+        <View style={styles.brand}>
+          <View style={styles.logoBox}>
+            <Text style={styles.logoChar}>$</Text>
+          </View>
+          <Text style={styles.brandName}>splitbills</Text>
+          <Text style={styles.brandBy}>by rosariodev</Text>
         </View>
 
-        {error !== '' && <Text style={styles.error}>{error}</Text>}
-        {info !== '' && <Text style={styles.info}>{info}</Text>}
+        {/* Heading */}
+        <Text style={styles.heading}>
+          {mode === 'login' ? 'Bienvenido.' : 'Crea tu cuenta.'}
+        </Text>
+        <Text style={styles.subheading}>
+          {mode === 'login'
+            ? 'Inicia sesión para ver tus splits.'
+            : 'Únete y empieza a dividir en segundos.'}
+        </Text>
+
+        {/* Form */}
+        <View style={styles.form}>
+          <View style={styles.fieldWrap}>
+            <Text style={styles.fieldLabel}>EMAIL</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="tu@email.com"
+              placeholderTextColor={T.textDim}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="Correo electrónico"
+            />
+          </View>
+          <View style={styles.fieldWrap}>
+            <Text style={styles.fieldLabel}>CONTRASEÑA</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Mínimo 8 caracteres"
+              placeholderTextColor={T.textDim}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              accessibilityLabel="Contraseña"
+            />
+          </View>
+        </View>
+
+        {error !== '' && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+        {info !== '' && (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>{info}</Text>
+          </View>
+        )}
 
         <Pressable
           style={({ pressed }) => [styles.btn, loading && styles.btnDisabled, pressed && styles.pressed]}
           onPress={handleSubmit}
           disabled={loading}
+          accessibilityLabel={mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}
+          accessibilityRole="button"
         >
           {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>{mode === 'login' ? 'Iniciar sesion' : 'Registrarse'}</Text>
+            ? <ActivityIndicator color={T.bg} />
+            : <Text style={styles.btnText}>{mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}</Text>
           }
         </Pressable>
 
         <Pressable
           style={({ pressed }) => [styles.switchBtn, pressed && styles.pressed]}
           onPress={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setInfo(''); }}
+          accessibilityLabel={mode === 'login' ? 'Crear una cuenta' : 'Ya tengo cuenta'}
+          accessibilityRole="button"
         >
           <Text style={styles.switchText}>
-            {mode === 'login' ? '¿Sin cuenta? Registrate' : '¿Ya tienes cuenta? Inicia sesion'}
+            {mode === 'login' ? '¿Sin cuenta? Regístrate' : '¿Ya tienes cuenta? Entra'}
           </Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: C.bg },
-  container: {
-    flex: 1,
+  wrapper: { flex: 1, backgroundColor: T.bg },
+  scroll: {
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 60,
   },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: C.accent,
-    letterSpacing: 1.5,
-    marginBottom: 16,
-    textAlign: 'center',
+
+  brand: { alignItems: 'center', marginBottom: 48 },
+  logoBox: {
+    width: 56, height: 56, borderRadius: 18,
+    backgroundColor: T.accent,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 14,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: C.text,
-    letterSpacing: -0.8,
-    marginBottom: 28,
-    textAlign: 'center',
+  logoChar: { color: T.bg, fontSize: 26, fontWeight: '900', letterSpacing: -1 },
+  brandName: { fontSize: 20, fontWeight: '800', color: T.text, letterSpacing: -0.5, marginBottom: 4 },
+  brandBy: { fontSize: 11, fontWeight: '500', color: T.textDim, letterSpacing: 0.5 },
+
+  heading: {
+    fontSize: 38, fontWeight: '800', color: T.text,
+    letterSpacing: -1.2, marginBottom: 8,
   },
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+  subheading: {
+    fontSize: 15, color: T.textSec, lineHeight: 22,
+    marginBottom: 36,
   },
-  label: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: C.textSub,
-    letterSpacing: 0.8,
-    marginBottom: 8,
+
+  form: { gap: 16, marginBottom: 20 },
+  fieldWrap: { gap: 8 },
+  fieldLabel: {
+    fontSize: 10, fontWeight: '700', color: T.textDim,
+    letterSpacing: 1.4,
   },
   input: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    fontSize: 16,
-    color: C.text,
-    backgroundColor: C.surfaceAlt,
+    backgroundColor: T.surfaceHigh,
+    borderWidth: 1, borderColor: T.border,
+    borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 16, color: T.text,
   },
-  error: {
-    color: C.danger,
-    fontSize: 13,
-    textAlign: 'center',
-    marginBottom: 10,
+
+  errorBox: {
+    backgroundColor: T.dangerBg,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 16,
   },
-  info: {
-    color: '#1A7A40',
-    fontSize: 13,
-    textAlign: 'center',
-    marginBottom: 10,
+  errorText: { color: T.danger, fontSize: 13, fontWeight: '500' },
+  infoBox: {
+    backgroundColor: T.successBg,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 16,
   },
+  infoText: { color: T.success, fontSize: 13, fontWeight: '500' },
+
   btn: {
-    backgroundColor: C.accent,
-    padding: 15,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginBottom: 12,
+    backgroundColor: T.accent,
+    paddingVertical: 16, borderRadius: 14,
+    alignItems: 'center', marginBottom: 14,
   },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  switchBtn: { alignItems: 'center', padding: 10 },
-  switchText: { color: C.accent, fontSize: 15, fontWeight: '500' },
+  btnDisabled: { opacity: 0.4 },
+  btnText: { color: T.bg, fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  switchBtn: { alignItems: 'center', paddingVertical: 12 },
+  switchText: { color: T.accentText, fontSize: 15, fontWeight: '600' },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
 });

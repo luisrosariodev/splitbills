@@ -9,16 +9,13 @@ import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
 import {
   getSplits, deleteSplit, getGroups, createGroup, deleteGroup,
-  getGroupDetail, buildGroupMessage,
+  getGroupDetail, buildGroupMessage, getSplitDetail, buildSingleMessage,
+  updateSplitName,
 } from '../lib/splitService';
+import { T as C } from '../lib/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'History'>;
 
-const C = {
-  bg: '#F2F2F7', surface: '#FFFFFF', border: '#E5E5EA',
-  accent: '#007AFF', text: '#1C1C1E', textSub: '#6C6C70',
-  textMuted: '#AEAEB2', danger: '#FF3B30', whatsapp: '#25D366',
-};
 
 type Split = { id: string; name: string; created_at: string; people: Array<{ id: string }> };
 type Group = { id: string; name: string; created_at: string; group_splits: Array<{ split_id: string }> };
@@ -55,6 +52,14 @@ export default function HistoryScreen({ navigation }: Props) {
   // Selection mode
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Share loading
+  const [sharingId, setSharingId] = useState<string | null>(null);
+
+  // Rename modal
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   // Group modal
   const [showModal, setShowModal] = useState(false);
@@ -133,6 +138,50 @@ export default function HistoryScreen({ navigation }: Props) {
       Alert.alert('Error', 'No se pudo crear el grupo.');
     } finally {
       setGrouping(false);
+    }
+  };
+
+  const handleShareSplit = async (split: Split) => {
+    if (sharingId) return;
+    setSharingId(split.id);
+    try {
+      const detail = await getSplitDetail(split.id);
+      const msg = buildSingleMessage(detail);
+      Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+    } catch {
+      Alert.alert('Error', 'No se pudo cargar el split.');
+    } finally {
+      setSharingId(null);
+    }
+  };
+
+  const handleLongPressSplit = (split: Split) => {
+    if (selectionMode) { toggleSelect(split.id); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(split.name, undefined, [
+      {
+        text: 'Renombrar', onPress: () => {
+          setRenameId(split.id);
+          setRenameInput(split.name);
+        },
+      },
+      { text: 'Seleccionar', onPress: () => enterSelection(split.id) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  const handleRename = async () => {
+    if (!renameId || !renameInput.trim()) return;
+    setRenaming(true);
+    try {
+      await updateSplitName(renameId, renameInput.trim());
+      setSplits((p) => p.map((s) => s.id === renameId ? { ...s, name: renameInput.trim() } : s));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setRenameId(null);
+    } catch {
+      Alert.alert('Error', 'No se pudo renombrar.');
+    } finally {
+      setRenaming(false);
     }
   };
 
@@ -241,7 +290,7 @@ export default function HistoryScreen({ navigation }: Props) {
                     <Pressable
                       style={({ pressed }) => [styles.row, pressed && styles.rowPressed, isSelected && styles.rowSelected]}
                       onPress={() => selectionMode ? toggleSelect(split.id) : navigation.navigate('SplitDetail', { splitId: split.id, splitName: split.name })}
-                      onLongPress={() => selectionMode ? toggleSelect(split.id) : enterSelection(split.id)}
+                      onLongPress={() => handleLongPressSplit(split)}
                     >
                       {selectionMode ? (
                         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
@@ -260,6 +309,16 @@ export default function HistoryScreen({ navigation }: Props) {
                       </View>
                       {!selectionMode && (
                         <View style={styles.rowRight}>
+                          <Pressable
+                            onPress={() => handleShareSplit(split)}
+                            hitSlop={12}
+                            style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.5 }]}
+                            disabled={sharingId === split.id}
+                          >
+                            <Text style={styles.shareBtnText}>
+                              {sharingId === split.id ? '...' : 'WA'}
+                            </Text>
+                          </Pressable>
                           <Pressable onPress={() => confirmDeleteSplit(split)} hitSlop={12} style={({ pressed }) => [{ opacity: pressed ? 0.4 : 1 }]}>
                             <Text style={styles.deleteText}>×</Text>
                           </Pressable>
@@ -305,6 +364,43 @@ export default function HistoryScreen({ navigation }: Props) {
           </Pressable>
         </View>
       )}
+
+      {/* Rename modal */}
+      <Modal visible={renameId !== null} transparent animationType="fade" onRequestClose={() => setRenameId(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setRenameId(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Renombrar split</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={renameInput}
+              onChangeText={setRenameInput}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleRename}
+              placeholderTextColor={C.textMuted}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={({ pressed }) => [styles.modalCancelBtn, pressed && styles.btnPressed]}
+                onPress={() => setRenameId(null)}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalConfirmBtn,
+                  (!renameInput.trim() || renaming) && styles.modalConfirmDisabled,
+                  pressed && styles.btnPressed,
+                ]}
+                onPress={handleRename}
+                disabled={!renameInput.trim() || renaming}
+              >
+                <Text style={styles.modalConfirmText}>{renaming ? 'Guardando...' : 'Guardar'}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Group name modal */}
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
@@ -367,7 +463,7 @@ const styles = StyleSheet.create({
   sectionCard: { backgroundColor: C.surface, borderRadius: 16, overflow: 'hidden' },
 
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, gap: 12 },
-  rowPressed: { backgroundColor: '#F0F0F5' },
+  rowPressed: { backgroundColor: C.surfaceHigh },
   rowSelected: { backgroundColor: C.accent + '0A' },
   rowMain: { flex: 1 },
   rowName: { fontSize: 15, fontWeight: '600', color: C.text, marginBottom: 2 },
@@ -378,7 +474,7 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: '700', color: C.accent },
 
-  groupIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF3CD', alignItems: 'center', justifyContent: 'center' },
+  groupIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center' },
   groupIcon: { fontSize: 18 },
 
   checkbox: {
@@ -391,6 +487,12 @@ const styles = StyleSheet.create({
 
   deleteText: { color: C.textMuted, fontSize: 20, lineHeight: 22 },
   chevron: { fontSize: 20, color: C.textMuted, fontWeight: '300' },
+
+  shareBtn: {
+    backgroundColor: C.whatsapp, borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
+  shareBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 16 },
