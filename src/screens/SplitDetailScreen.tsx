@@ -45,6 +45,7 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
   };
 
   const handleNavigateEdit = () => navigation.navigate('EditSplit', { splitId, splitName: route.params.splitName });
+  const handleNavigateSettlements = () => navigation.navigate('Settlements', { splitId, splitName: route.params.splitName });
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color={C.accent} /></View>;
@@ -160,6 +161,15 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
           <Text style={styles.editBtnText}>Editar</Text>
         </Pressable>
       </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.settlementsBtn, pressed && styles.pressed]}
+        onPress={handleNavigateSettlements}
+        accessibilityLabel="Ver pagos"
+        accessibilityRole="button"
+      >
+        <Text style={styles.settlementsBtnText}>Ver pagos</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -227,4 +237,11 @@ const styles = StyleSheet.create({
   editBtnText: { color: C.text, fontSize: 15, fontWeight: '700' },
   btnDisabled: { opacity: 0.4 },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.88 },
+
+  settlementsBtn: {
+    borderWidth: 1.5, borderColor: C.accent, padding: 16,
+    borderRadius: 14, alignItems: 'center',
+    backgroundColor: C.accentDim,
+  },
+  settlementsBtnText: { color: C.accent, fontSize: 15, fontWeight: '700' },
 });

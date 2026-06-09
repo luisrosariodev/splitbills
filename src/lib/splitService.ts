@@ -241,6 +241,118 @@ export const deleteAllUserData = async () => {
   await supabaseClient.auth.signOut();
 };
 
+// ── Recent people ─────────────────────────────────────────
+
+export const getRecentPeople = async (): Promise<string[]> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return [];
+  const { data: splits } = await supabaseClient
+    .from('splits').select('id').eq('user_id', user.id)
+    .order('created_at', { ascending: false }).limit(30);
+  if (!splits || splits.length === 0) return [];
+  const { data } = await supabaseClient
+    .from('people').select('name').in('split_id', splits.map((s) => s.id));
+  const counts: Record<string, number> = {};
+  (data ?? []).forEach((p: any) => { counts[p.name] = (counts[p.name] ?? 0) + 1; });
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+};
+
+// ── Saved contacts ────────────────────────────────────────
+
+export const getSavedContacts = async (): Promise<Array<{ id: string; name: string }>> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabaseClient
+    .from('saved_contacts').select('id, name').eq('user_id', user.id).order('name');
+  if (error) return [];
+  return (data ?? []) as Array<{ id: string; name: string }>;
+};
+
+export const saveContact = async (name: string): Promise<void> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return;
+  await supabaseClient.from('saved_contacts').insert({ user_id: user.id, name: name.trim() });
+};
+
+export const deleteContact = async (id: string): Promise<void> => {
+  await supabaseClient.from('saved_contacts').delete().eq('id', id);
+};
+
+// ── Settlements ────────────────────────────────────────────
+
+export type Settlement = {
+  id: string; split_id: string;
+  payer_name: string; payee_name: string;
+  amount: number; settled: boolean; settled_at: string | null; created_at: string;
+};
+
+export const getSettlements = async (splitId: string): Promise<Settlement[]> => {
+  const { data, error } = await supabaseClient
+    .from('settlements').select('*').eq('split_id', splitId).order('created_at');
+  if (error) return [];
+  return (data ?? []) as Settlement[];
+};
+
+export const createSettlement = async (
+  splitId: string, payerName: string, payeeName: string, amount: number
+): Promise<void> => {
+  const { error } = await supabaseClient.from('settlements')
+    .insert({ split_id: splitId, payer_name: payerName, payee_name: payeeName, amount });
+  if (error) throw error;
+};
+
+export const markSettled = async (settlementId: string): Promise<void> => {
+  const { error } = await supabaseClient.from('settlements')
+    .update({ settled: true, settled_at: new Date().toISOString() }).eq('id', settlementId);
+  if (error) throw error;
+};
+
+// ── Enhanced stats ─────────────────────────────────────────
+
+export const getFullStats = async (): Promise<{
+  splitCount: number;
+  totalEstimated: number;
+  thisMonth: number;
+  lastMonth: number;
+  topPeople: Array<{ name: string; count: number }>;
+}> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) throw new Error('No autenticado');
+
+  const { data, error } = await supabaseClient
+    .from('splits')
+    .select('created_at, tip_amount, tax_amount, items(price), people(name)')
+    .eq('user_id', user.id);
+  if (error) throw error;
+
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+
+  let totalEstimated = 0, thisMonth = 0, lastMonth = 0;
+  const peopleCounts: Record<string, number> = {};
+
+  (data ?? []).forEach((s: any) => {
+    const subtotal = (s.items ?? []).reduce((sum: number, i: any) => sum + Number(i.price), 0);
+    const total = subtotal + Number(s.tip_amount ?? 0) + Number(s.tax_amount ?? 0);
+    totalEstimated += total;
+    if (s.created_at >= thisMonthStart) thisMonth += total;
+    else if (s.created_at >= lastMonthStart) lastMonth += total;
+    (s.people ?? []).forEach((p: any) => {
+      peopleCounts[p.name] = (peopleCounts[p.name] ?? 0) + 1;
+    });
+  });
+
+  const topPeople = Object.entries(peopleCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+
+  return { splitCount: (data ?? []).length, totalEstimated, thisMonth, lastMonth, topPeople };
+};
+
 // ── Message builders ──────────────────────────────────────
 
 export type SplitDetail = Awaited<ReturnType<typeof getSplitDetail>>;

@@ -7,11 +7,20 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Usa Face ID para acceder a divvi de forma segura."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "LSApplicationQueriesSchemes": ["whatsapp"],
-        "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a la biblioteca de fotos para que puedas compartir tus splits con tus amigos."
+        "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a la biblioteca de fotos para que puedas compartir tus splits con tus amigos.",
+        "NSFaceIDUsageDescription": "Usa Face ID para acceder a divvi de forma segura."
       }
     },
     "android": {

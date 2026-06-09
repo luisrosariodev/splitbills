@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { getDefaultCurrency, setDefaultCurrency, getDefaultTip, setDefaultTip } from '../lib/settings';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { getDefaultCurrency, setDefaultCurrency, getDefaultTip, setDefaultTip, getBiometricEnabled, setBiometricEnabled } from '../lib/settings';
 import { T } from '../lib/theme';
 
 const CURRENCIES = ['$', '€', '£', '¥'];
@@ -10,12 +11,24 @@ const TIP_PRESETS = [0, 10, 15, 18, 20];
 export default function SettingsScreen() {
   const [currency, setCurrencyState] = useState('$');
   const [tip, setTipState] = useState(0);
+  const [biometric, setBiometricState] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getDefaultCurrency(), getDefaultTip()])
-      .then(([c, t]) => { setCurrencyState(c); setTipState(t); })
-      .finally(() => setLoading(false));
+    const init = async () => {
+      const [c, t, bio, hasHW, enrolled] = await Promise.all([
+        getDefaultCurrency(), getDefaultTip(), getBiometricEnabled(),
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync(),
+      ]);
+      setCurrencyState(c);
+      setTipState(t);
+      setBiometricState(bio);
+      setBiometricAvailable(hasHW && enrolled);
+      setLoading(false);
+    };
+    init();
   }, []);
 
   const handleCurrency = async (v: string) => {
@@ -28,6 +41,12 @@ export default function SettingsScreen() {
     Haptics.selectionAsync();
     setTipState(v);
     await setDefaultTip(v);
+  };
+
+  const handleBiometric = async (enabled: boolean) => {
+    Haptics.selectionAsync();
+    setBiometricState(enabled);
+    await setBiometricEnabled(enabled);
   };
 
   if (loading) return <View style={s.center}><ActivityIndicator color={T.accent} /></View>;
@@ -73,6 +92,24 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {biometricAvailable && (
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>SEGURIDAD</Text>
+          <View style={s.switchRow}>
+            <View style={s.switchLabel}>
+              <Text style={s.switchTitle}>Face ID / Touch ID</Text>
+              <Text style={s.switchSub}>Requerir biométrico al abrir la app</Text>
+            </View>
+            <Switch
+              value={biometric}
+              onValueChange={handleBiometric}
+              trackColor={{ false: T.border, true: T.accent }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+      )}
+
       <Text style={s.hint}>
         Se aplican al abrir un nuevo split.
       </Text>
@@ -99,4 +136,9 @@ const s = StyleSheet.create({
   pressed: { transform: [{ scale: 0.96 }], opacity: 0.82 },
 
   hint: { fontSize: 12, color: T.textDim, textAlign: 'center', letterSpacing: 0.2 },
+
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  switchLabel: { flex: 1 },
+  switchTitle: { fontSize: 15, fontWeight: '600', color: T.text },
+  switchSub: { fontSize: 12, color: T.textSec, marginTop: 2 },
 });

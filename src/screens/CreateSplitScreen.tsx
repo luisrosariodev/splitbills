@@ -19,7 +19,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
 import { Person, Item } from '../types';
-import { saveSplt } from '../lib/splitService';
+import { saveSplt, getRecentPeople } from '../lib/splitService';
 import { addToQueue } from '../lib/offlineQueue';
 import { notifySplitSaved } from '../lib/notifications';
 import { validateSplitName, validateItemName, validatePrice, sanitize } from '../lib/validation';
@@ -98,6 +98,8 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const [currency, setCurrency] = useState('$');
   const [personInput, setPersonInput] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
+  const [recentPeople, setRecentPeople] = useState<string[]>([]);
+  const [personFocused, setPersonFocused] = useState(false);
   const [itemNameInput, setItemNameInput] = useState('');
   const [itemPriceInput, setItemPriceInput] = useState('');
   const [items, setItems] = useState<Item[]>([]);
@@ -106,9 +108,10 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const [tax, setTax] = useState<AddOn>({ preset: 0, mode: 'pct', customVal: '' });
 
   useEffect(() => {
-    Promise.all([getDefaultCurrency(), getDefaultTip()]).then(([c, t]) => {
-      setCurrency(c);
-      if (t > 0) setTip({ preset: t, mode: 'pct', customVal: '' });
+    Promise.all([getDefaultCurrency(), getDefaultTip(), getRecentPeople()]).then(([c, t, recent]) => {
+      setCurrency(c as string);
+      if ((t as number) > 0) setTip({ preset: t as number, mode: 'pct', customVal: '' });
+      setRecentPeople(recent as string[]);
     }).catch(() => {});
   }, []);
 
@@ -157,10 +160,26 @@ export default function CreateSplitScreen({ navigation }: Props) {
         },
       );
       const data = await res.json();
+
+      // Debug: log raw response
+      if (data?.error) {
+        Alert.alert('Error API', `${data.error.code}: ${data.error.message}`);
+        return;
+      }
+
       const text: string = data?.responses?.[0]?.fullTextAnnotation?.text ?? '';
+
+      if (!text) {
+        Alert.alert('Sin texto', 'Vision no detectó texto.\n\nRespuesta: ' + JSON.stringify(data?.responses?.[0]).slice(0, 200));
+        return;
+      }
+
       const parsed = parseReceiptText(text);
       if (parsed.length === 0) {
-        Alert.alert('Sin resultados', 'No se pudieron detectar items en el recibo. Intenta con una foto más clara.');
+        Alert.alert(
+          'Sin items',
+          'Texto detectado pero sin precios reconocidos.\n\nTexto:\n' + text.slice(0, 400),
+        );
         return;
       }
       setItems((prev) => [
@@ -168,8 +187,8 @@ export default function CreateSplitScreen({ navigation }: Props) {
         ...parsed.map((p) => ({ id: Date.now().toString() + Math.random(), ...p, assignedTo: [] })),
       ]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      Alert.alert('Error', 'No se pudo procesar el recibo.');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo procesar el recibo.');
     } finally {
       setScanningReceipt(false);
     }
@@ -178,18 +197,38 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const parseReceiptText = (text: string): Array<{ name: string; price: number }> => {
     const results: Array<{ name: string; price: number }> = [];
     const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-    const pricePattern = /\$?\s*(\d{1,5}[.,]\d{2})/;
-    const skipWords = /^(total|subtotal|tax|iva|ivu|tip|propina|impuesto|change|cash|card|visa|mastercard|amex|gracias|thank|receipt|recibo|date|fecha)/i;
+
+    // Matches: $12.50  12.50  12,50  1,234.56  .99
+    const priceRe = /\$?\s*(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?|\d{0,4}[.,]\d{2})/g;
+
+    const skipRe = /^(total|subtotal|tax|iva|ivu|tip|propina|impuesto|change|cash|card|visa|mastercard|amex|discover|gracias|thank|receipt|recibo|date|fecha|balance|due|paid|server|table|guest|check|order|invoice|phone|address|tel|www)/i;
+
     lines.forEach((line) => {
-      if (skipWords.test(line)) return;
-      const match = line.match(pricePattern);
-      if (!match) return;
-      const price = parseFloat(match[1].replace(',', '.'));
-      if (isNaN(price) || price <= 0 || price > 999) return;
-      const name = line.replace(match[0], '').replace(/[^a-záéíóúüñA-ZÁÉÍÓÚÜÑa-z0-9 ]/g, ' ').trim();
+      if (skipRe.test(line)) return;
+
+      // Find all price-like tokens — use the LAST one (right column = price)
+      const matches = [...line.matchAll(priceRe)];
+      if (matches.length === 0) return;
+
+      const last = matches[matches.length - 1];
+      // Normalize: 12,50 → 12.50 | 1,234.56 → 1234.56
+      const normalized = last[1].replace(/,(\d{2})$/, '.$1').replace(/,/g, '');
+      const price = parseFloat(normalized);
+
+      if (isNaN(price) || price < 0.01 || price > 9999) return;
+
+      // Name = everything before the last price, cleaned
+      const raw = line.slice(0, last.index ?? 0);
+      const name = raw
+        .replace(/^\d+\s*[x@]\s*/i, '')          // strip "2x " or "1 @ "
+        .replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ &'()\-/]/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
       if (name.length < 2) return;
       results.push({ name: name.slice(0, 60), price });
     });
+
     return results;
   };
 
@@ -213,6 +252,14 @@ export default function CreateSplitScreen({ navigation }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     LayoutAnimation.configureNext(LAYOUT_SPRING);
     setPeople([...people, { id: Date.now().toString(), name }]);
+    setPersonInput('');
+  };
+
+  const addPersonByName = (name: string) => {
+    if (people.some((p) => p.name.toLowerCase() === name.toLowerCase())) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    LayoutAnimation.configureNext(LAYOUT_SPRING);
+    setPeople((prev) => [...prev, { id: Date.now().toString(), name }]);
     setPersonInput('');
   };
 
@@ -486,12 +533,43 @@ export default function CreateSplitScreen({ navigation }: Props) {
             value={personInput}
             onChangeText={setPersonInput}
             onSubmitEditing={addPerson}
+            onFocus={() => setPersonFocused(true)}
+            onBlur={() => setPersonFocused(false)}
           />
           <Pressable style={({ pressed }) => [styles.addBtn, pressed && styles.btnPressed]} onPress={addPerson}>
             <Text style={styles.addBtnText}>+</Text>
           </Pressable>
         </View>
         {personError !== '' && <Text style={styles.inlineError}>{personError}</Text>}
+        {personFocused && (() => {
+          const query = personInput.trim().toLowerCase();
+          const suggestions = recentPeople.filter((name) =>
+            !people.some((p) => p.name.toLowerCase() === name.toLowerCase()) &&
+            (query === '' || name.toLowerCase().includes(query))
+          ).slice(0, 6);
+          if (suggestions.length === 0) return null;
+          return (
+            <View style={styles.suggestionsWrap}>
+              <Text style={styles.suggestionsLabel}>
+                {query === '' ? 'RECIENTES' : 'SUGERIDOS'}
+              </Text>
+              <View style={styles.suggestionsRow}>
+                {suggestions.map((name) => (
+                  <Pressable
+                    key={name}
+                    style={({ pressed }) => [styles.suggestionChip, pressed && { opacity: 0.7 }]}
+                    onPress={() => addPersonByName(name)}
+                  >
+                    <View style={styles.suggestionAvatar}>
+                      <Text style={styles.suggestionAvatarText}>{name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.suggestionChipText}>{name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
         {people.length === 0
           ? <Text style={styles.emptyHint}>Agrega personas para asignar items.</Text>
           : (
@@ -824,6 +902,26 @@ const styles = StyleSheet.create({
   whatsappBtnText: { color: C.bg, fontSize: 16, fontWeight: '700', letterSpacing: 0.1 },
 
   inlineError: { color: C.danger, fontSize: 12, marginTop: 6 },
+
+  suggestionsWrap: { marginTop: 10, gap: 8 },
+  suggestionsLabel: {
+    fontSize: 9, fontWeight: '700', color: C.textMuted,
+    letterSpacing: 1.4,
+  },
+  suggestionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  suggestionChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: C.surfaceAlt, borderRadius: 18,
+    paddingLeft: 5, paddingRight: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: C.border,
+  },
+  suggestionAvatar: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: C.accentDim,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  suggestionAvatarText: { fontSize: 10, fontWeight: '700', color: C.accent },
+  suggestionChipText: { fontSize: 13, fontWeight: '500', color: C.text },
   queuedBanner: {
     backgroundColor: C.warningBg, borderRadius: 10,
     paddingVertical: 10, alignItems: 'center', marginBottom: 12,

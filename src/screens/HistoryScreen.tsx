@@ -270,7 +270,7 @@ export default function HistoryScreen({ navigation }: Props) {
                     onLongPress={() => confirmDeleteGroup(group)}
                   >
                     <View style={[styles.groupIconWrap]}>
-                      <Text style={styles.groupIcon}>📁</Text>
+                      <Text style={styles.groupInitial}>{group.name.charAt(0).toUpperCase()}</Text>
                     </View>
                     <View style={styles.rowMain}>
                       <Text style={styles.rowName}>{group.name}</Text>
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 16, fontWeight: '700', color: C.accent },
 
   groupIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center' },
-  groupIcon: { fontSize: 18 },
+  groupInitial: { fontSize: 15, fontWeight: '700', color: C.warning },
 
   checkbox: {
     width: 24, height: 24, borderRadius: 12, borderWidth: 2,
