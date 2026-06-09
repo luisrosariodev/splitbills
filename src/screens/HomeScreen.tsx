@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList } from '../types/navigation';
 import supabaseClient from '../lib/supabase';
 import { getQueueCount } from '../lib/offlineQueue';
-import { T, GRADIENT } from '../lib/theme';
+import { T, GRADIENT, FONTS } from '../lib/theme';
 import PressScale from '../components/PressScale';
 import DivviLogo from '../components/DivviLogo';
 
@@ -22,9 +22,11 @@ export default function HomeScreen({ navigation }: Props) {
   const btn2Anim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    supabaseClient.auth.getUser().then(({ data: { user } }) => {
-      setUserInitial((user?.email ?? '').charAt(0).toUpperCase());
-    });
+    supabaseClient.auth.getUser()
+      .then(({ data: { user } }) => {
+        setUserInitial((user?.email ?? '').charAt(0).toUpperCase());
+      })
+      .catch(() => {});
 
     Animated.sequence([
       Animated.delay(50),
@@ -159,14 +161,14 @@ const s = StyleSheet.create({
 
   hero: { flex: 1, justifyContent: 'center' },
   eyebrow: {
-    fontSize: 10, fontWeight: '700', color: T.accent,
+    fontSize: 10, fontFamily: FONTS.bold, color: T.accent,
     letterSpacing: 2.8, marginBottom: 18,
   },
   title: {
-    fontSize: 50, fontWeight: '800', color: T.text,
-    letterSpacing: -2, lineHeight: 54, marginBottom: 20,
+    fontSize: 50, fontFamily: FONTS.bold, color: T.text,
+    letterSpacing: -1.5, lineHeight: 54, marginBottom: 20,
   },
-  subtitle: { fontSize: 16, color: T.textSec, lineHeight: 25, maxWidth: 290 },
+  subtitle: { fontSize: 16, fontFamily: FONTS.regular, color: T.textSec, lineHeight: 25, maxWidth: 290 },
 
   actions: { gap: 11, paddingBottom: 4 },
 
@@ -186,8 +188,8 @@ const s = StyleSheet.create({
     paddingVertical: 16, borderRadius: 16, alignItems: 'center',
     borderWidth: 1.5, borderColor: T.borderMid, backgroundColor: T.surface,
   },
-  primaryBtnText: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: 0.1 },
-  secondaryBtnText: { color: T.text, fontSize: 17, fontWeight: '600' },
+  primaryBtnText: { color: '#fff', fontSize: 17, fontFamily: FONTS.bold, letterSpacing: 0.1 },
+  secondaryBtnText: { color: T.text, fontSize: 17, fontFamily: FONTS.bold },
 
   footer: {
     textAlign: 'center', fontSize: 11,

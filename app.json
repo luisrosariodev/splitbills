@@ -13,12 +13,17 @@
         {
           "faceIDPermission": "Usa Face ID para acceder a divvi de forma segura."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rosariodev.divvi",
+      "buildNumber": "1",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["whatsapp"],
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ],
         "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a la biblioteca de fotos para que puedas compartir tus splits con tus amigos.",
         "NSFaceIDUsageDescription": "Usa Face ID para acceder a divvi de forma segura."
       }
@@ -38,7 +43,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#6535E8"
+      "backgroundColor": "#0B5884"
     },
     "extra": {
       "rosariodev": true

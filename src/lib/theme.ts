@@ -1,33 +1,40 @@
-// divvi — cyan #00CFFF → purple #7B2FFF gradient brand
-// rosariodev · divvi
+// divvi by rosariodev
+// Product accent: #0B5884 (rosariodev blue) → gradient endpoint #00CFFF
+// Font: Sansation (rosariodev brand) — loaded via expo-font
 
-export const GRADIENT = ['#00CFFF', '#7B2FFF'] as const;
+export const GRADIENT = ['#00CFFF', '#0B5884'] as const;
+
+// Typography — use these fontFamily strings after fonts are loaded
+export const FONTS = {
+  regular: 'Sansation-Regular',
+  bold:    'Sansation-Bold',
+} as const;
 
 export const T = {
   // ── Surfaces ──────────────────────────────────────────────
-  bg:          '#F8F7FF',   // barely-there purple tint
+  bg:          '#F5F6F7',   // rosariodev light
   surface:     '#FFFFFF',
-  surfaceAlt:  '#F0EFFE',   // inputs — light purple tint
-  surfaceHigh: '#F0EFFE',
+  surfaceAlt:  '#EDF3F7',   // blue-tinted input bg
+  surfaceHigh: '#EDF3F7',
   overlay:     '#FFFFFF',
 
   // ── Borders ───────────────────────────────────────────────
-  border:       '#E6E0FF',
-  borderMid:    '#C4B8F5',
-  borderStrong: '#C4B8F5',
+  border:       '#D6E4EF',
+  borderMid:    '#A8C4D8',
+  borderStrong: '#7AAFC9',
 
   // ── Text ─────────────────────────────────────────────────
-  text:     '#160C2E',   // near-black, deep purple undertone
-  textSec:  '#6A5D8C',
-  textSub:  '#6A5D8C',   // compat alias
-  textDim:  '#A898C8',
-  textMuted:'#A898C8',   // compat alias
+  text:     '#111827',   // rosariodev dark
+  textSec:  '#687280',   // rosariodev gray
+  textSub:  '#687280',
+  textDim:  '#9BAAB6',
+  textMuted:'#9BAAB6',
 
-  // ── Accent: gradient midpoint purple-blue ─────────────────
-  accent:       '#6535E8',
-  accentDim:    'rgba(101, 53, 232, 0.09)',
-  accentSubtle: 'rgba(101, 53, 232, 0.09)',  // compat
-  accentText:   '#6535E8',
+  // ── Accent: rosariodev blue ───────────────────────────────
+  accent:       '#0B5884',
+  accentDim:    'rgba(11, 88, 132, 0.09)',
+  accentSubtle: 'rgba(11, 88, 132, 0.09)',
+  accentText:   '#0B5884',
 
   // ── Semantic ─────────────────────────────────────────────
   success:   '#1DB87A',
@@ -41,8 +48,8 @@ export const T = {
   whatsapp: '#25D366',
 };
 
-// Avatar palette — purple-anchored vivid
+// Avatar palette — blue-anchored
 export const AVATAR_PALETTE = [
-  '#6535E8', '#1DB87A', '#D97706',
-  '#E53E3E', '#00B4D8', '#7B2FFF',
+  '#0B5884', '#1DB87A', '#D97706',
+  '#E53E3E', '#00B4D8', '#2E7DAB',
 ];

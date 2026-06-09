@@ -1,5 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, AppState, Text, Pressable, StyleSheet } from 'react-native';
+import { View, AppState, Text, Pressable, StyleSheet, LogBox } from 'react-native';
+
+LogBox.ignoreLogs([
+  'AuthRetryableFetchError',
+  'AuthSessionMissingError',
+  'AuthInvalidCredentialsError',
+]);
+import { useFonts } from 'expo-font';
 import { NavigationContainer } from '@react-navigation/native';
 import type { LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,7 +23,7 @@ import supabaseClient from './src/lib/supabase';
 import { RootStackParamList, TabParamList } from './src/types/navigation';
 import { syncOfflineQueue } from './src/lib/splitService';
 import { getBiometricEnabled } from './src/lib/settings';
-import { T } from './src/lib/theme';
+import { T, FONTS } from './src/lib/theme';
 
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -187,7 +194,7 @@ const tb = StyleSheet.create({
   pillLabel: {
     color: '#FAFAFA',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     letterSpacing: -0.2,
   },
 });
@@ -232,6 +239,11 @@ const stackOptions = {
 };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    [FONTS.regular]: require('./assets/fonts/Sansation-Regular.ttf'),
+    [FONTS.bold]:    require('./assets/fonts/Sansation-Bold.ttf'),
+  });
+
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
@@ -242,15 +254,21 @@ export default function App() {
 
   useEffect(() => {
     const init = async () => {
-      const [{ data: { session: s } }, done, bioEnabled] = await Promise.all([
-        supabaseClient.auth.getSession(),
-        AsyncStorage.getItem(ONBOARDING_KEY),
-        getBiometricEnabled(),
-      ]);
-      setSession(s);
-      setOnboarded(done === '1');
-      setBiometricEnabledState(bioEnabled);
-      setLoading(false);
+      try {
+        const [{ data: { session: s } }, done, bioEnabled] = await Promise.all([
+          supabaseClient.auth.getSession(),
+          AsyncStorage.getItem(ONBOARDING_KEY),
+          getBiometricEnabled(),
+        ]);
+        setSession(s);
+        setOnboarded(done === '1');
+        setBiometricEnabledState(bioEnabled);
+      } catch {
+        // Network unavailable on startup — keep loading=false so app renders
+        setOnboarded(true);
+      } finally {
+        setLoading(false);
+      }
     };
     init();
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_e, s) => setSession(s));
@@ -278,7 +296,7 @@ export default function App() {
     return () => sub.remove();
   }, [session]);
 
-  if (loading || onboarded === null) return <View style={{ flex: 1, backgroundColor: T.bg }} />;
+  if (loading || onboarded === null || !fontsLoaded) return <View style={{ flex: 1, backgroundColor: T.bg }} />;
 
   if (!onboarded) {
     return (

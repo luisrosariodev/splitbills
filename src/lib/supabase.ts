@@ -12,10 +12,10 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 // Lo exportamos para usarlo en toda la app y hacer consultas a la base de datos o autenticación
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    // Usamos AsyncStorage para guardar el estado de autenticación incluso al cerrar la app
     storage: AsyncStorage,
-    autoRefreshToken: true, // para renovar el token automáticamente
-    persistSession: true, // para mantener la sesión iniciada al cerrar la app
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
   },
 });
 

@@ -46,7 +46,16 @@ export default function AuthScreen() {
       }
     } catch (e: any) {
       const msg = e?.message ?? '';
-      setError(ERROR_MAP[msg] ?? msg ?? 'Ocurrió un error.');
+      if (
+        msg.includes('Network request failed') ||
+        msg.includes('network_unavailable') ||
+        msg.includes('Failed to fetch') ||
+        msg.includes('offline')
+      ) {
+        setError('Sin conexión. Verifica tu internet e intenta de nuevo.');
+      } else {
+        setError(ERROR_MAP[msg] ?? msg ?? 'Ocurrió un error.');
+      }
     } finally { setLoading(false); }
   };
 
