@@ -19,16 +19,19 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
 import { Person, Item } from '../types';
-import { saveSplt, getRecentPeople } from '../lib/splitService';
+import { saveSplit, getRecentPeople } from '../lib/splitService';
+import supabaseClient from '../lib/supabase';
 import { addToQueue } from '../lib/offlineQueue';
 import { notifySplitSaved } from '../lib/notifications';
 import { validateSplitName, validateItemName, validatePrice, sanitize } from '../lib/validation';
 import { getDefaultCurrency, getDefaultTip } from '../lib/settings';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateSplit'>;
 
-import { T as C, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
+import { useColors, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
 
 const CURRENCIES = ['$', '€', '£', '¥'];
 const TIP_PRESETS = [10, 15, 18, 20];
@@ -93,7 +96,35 @@ function ScaleIn({ children, delay = 0 }: { children: React.ReactNode; delay?: n
   );
 }
 
+function SavedAnimation() {
+  const scale = useRef(new Animated.Value(0.5)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 12 }),
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={[savedAnimStyles.wrap, { opacity, transform: [{ scale }] }]}>
+      <Text style={savedAnimStyles.check}>✓</Text>
+      <Text style={savedAnimStyles.label}>divvi guardado</Text>
+    </Animated.View>
+  );
+}
+const savedAnimStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#EDFAF3', borderRadius: 12,
+    paddingVertical: 12, marginBottom: 12,
+  },
+  check: { fontSize: 18, color: '#22C55E', fontWeight: '800' },
+  label: { fontSize: 15, fontWeight: '700', color: '#16A34A' },
+});
+
 export default function CreateSplitScreen({ navigation }: Props) {
+  const C = useColors();
+  const styles = makeStyles(C);
   const [splitName, setSplitName] = useState('');
   const [currency, setCurrency] = useState('$');
   const [personInput, setPersonInput] = useState('');
@@ -123,68 +154,85 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const [itemError, setItemError] = useState('');
 
   const [scanningReceipt, setScanningReceipt] = useState(false);
+  const [receiptPhotoUri, setReceiptPhotoUri] = useState<string | null>(null);
+  const lastScanRef = useRef(0);
 
   const handleScanReceipt = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos para escanear el recibo.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 0.8,
-      base64: true,
-    });
-    if (result.canceled || !result.assets[0]?.base64) return;
+    if (Date.now() - lastScanRef.current < 3000) return;
+    lastScanRef.current = Date.now();
 
-    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_VISION_KEY;
-    if (!apiKey) {
-      Alert.alert('OCR no configurado', 'Agrega EXPO_PUBLIC_GOOGLE_VISION_KEY en tu .env para usar esta función.');
-      return;
-    }
+    const imgOptions = { mediaTypes: 'images' as const, allowsEditing: false, quality: 1 as const, base64: false };
+
+    const result = await new Promise<ImagePicker.ImagePickerResult | null>((resolve) => {
+      Alert.alert('Escanear recibo', undefined, [
+        {
+          text: 'Cámara',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.');
+              resolve(null); return;
+            }
+            resolve(await ImagePicker.launchCameraAsync(imgOptions));
+          },
+        },
+        {
+          text: 'Fotos',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos.');
+              resolve(null); return;
+            }
+            resolve(await ImagePicker.launchImageLibraryAsync(imgOptions));
+          },
+        },
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(null) },
+      ]);
+    });
+
+    if (!result || result.canceled || !result.assets?.[0]?.uri) return;
 
     setScanningReceipt(true);
     try {
-      const res = await fetch(
-        `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requests: [{
-              image: { content: result.assets[0].base64 },
-              features: [{ type: 'TEXT_DETECTION' }],
-            }],
-          }),
-        },
-      );
-      const data = await res.json();
+      const asset = result.assets[0];
+      const isLandscape = (asset.width ?? 0) > (asset.height ?? 0);
 
-      // Debug: log raw response
-      if (data?.error) {
-        Alert.alert('Error API', `${data.error.code}: ${data.error.message}`);
-        return;
-      }
+      const ctx = ImageManipulator.ImageManipulator.manipulate(asset.uri);
+      if (isLandscape) ctx.rotate(-90);
+      ctx.resize({ width: 1200 });
+      const img = await ctx.renderAsync();
+      const compressed = await img.saveAsync({
+        compress: 0.8,
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: true,
+      });
+      if (!compressed.base64) throw new Error('No se pudo comprimir la imagen.');
 
-      const text: string = data?.responses?.[0]?.fullTextAnnotation?.text ?? '';
+      const { data, error } = await supabaseClient.functions.invoke('ocr-receipt', {
+        body: { image: compressed.base64 },
+      });
 
-      if (!text) {
-        Alert.alert('Sin texto', 'Vision no detectó texto.\n\nRespuesta: ' + JSON.stringify(data?.responses?.[0]).slice(0, 200));
-        return;
-      }
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
-      const parsed = parseReceiptText(text);
+      let parsed: Array<{ name: string; price: number }> = data?.items ?? [];
+      parsed = parsed.filter((p) => p.name && typeof p.price === 'number' && p.price > 0);
+
       if (parsed.length === 0) {
-        Alert.alert(
-          'Sin items',
-          'Texto detectado pero sin precios reconocidos.\n\nTexto:\n' + text.slice(0, 400),
-        );
+        Alert.alert('Sin items', 'No se encontraron items en este recibo.');
         return;
       }
+
+      setReceiptPhotoUri(compressed.uri);
       setItems((prev) => [
         ...prev,
-        ...parsed.map((p) => ({ id: Date.now().toString() + Math.random(), ...p, assignedTo: [] })),
+        ...parsed.map((p) => ({
+          id: Date.now().toString() + Math.random(),
+          name: p.name.slice(0, 60),
+          price: p.price,
+          assignedTo: [],
+        })),
       ]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
@@ -192,44 +240,6 @@ export default function CreateSplitScreen({ navigation }: Props) {
     } finally {
       setScanningReceipt(false);
     }
-  };
-
-  const parseReceiptText = (text: string): Array<{ name: string; price: number }> => {
-    const results: Array<{ name: string; price: number }> = [];
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-
-    // Matches: $12.50  12.50  12,50  1,234.56  .99
-    const priceRe = /\$?\s*(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?|\d{0,4}[.,]\d{2})/g;
-
-    const skipRe = /^(total|subtotal|tax|iva|ivu|tip|propina|impuesto|change|cash|card|visa|mastercard|amex|discover|gracias|thank|receipt|recibo|date|fecha|balance|due|paid|server|table|guest|check|order|invoice|phone|address|tel|www)/i;
-
-    lines.forEach((line) => {
-      if (skipRe.test(line)) return;
-
-      // Find all price-like tokens — use the LAST one (right column = price)
-      const matches = [...line.matchAll(priceRe)];
-      if (matches.length === 0) return;
-
-      const last = matches[matches.length - 1];
-      // Normalize: 12,50 → 12.50 | 1,234.56 → 1234.56
-      const normalized = last[1].replace(/,(\d{2})$/, '.$1').replace(/,/g, '');
-      const price = parseFloat(normalized);
-
-      if (isNaN(price) || price < 0.01 || price > 9999) return;
-
-      // Name = everything before the last price, cleaned
-      const raw = line.slice(0, last.index ?? 0);
-      const name = raw
-        .replace(/^\d+\s*[x@]\s*/i, '')          // strip "2x " or "1 @ "
-        .replace(/[^\wáéíóúüñÁÉÍÓÚÜÑ &'()\-/]/g, ' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-
-      if (name.length < 2) return;
-      results.push({ name: name.slice(0, 60), price });
-    });
-
-    return results;
   };
 
   const [saving, setSaving] = useState(false);
@@ -307,11 +317,14 @@ export default function CreateSplitScreen({ navigation }: Props) {
 
   const saveEditItem = () => {
     if (!editingItemId) return;
-    const price = parseFloat(editPrice);
-    if (isNaN(price)) return;
+    const nameErr = validateItemName(editName);
+    if (nameErr) { setItemError(nameErr); return; }
+    const priceErr = validatePrice(editPrice);
+    if (priceErr) { setItemError(priceErr); return; }
+    setItemError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setItems((prev) => prev.map((item) =>
-      item.id === editingItemId ? { ...item, name: editName.trim() || item.name, price } : item
+      item.id === editingItemId ? { ...item, name: editName.trim(), price: parseFloat(editPrice) } : item
     ));
     setEditingItemId(null);
   };
@@ -379,8 +392,11 @@ export default function CreateSplitScreen({ navigation }: Props) {
     setQueued(false);
     setSaveError('');
     try {
-      await saveSplt(splitName, people, items, tipAmount, taxAmount);
+      const savedData = await saveSplit(splitName, people, items, tipAmount, taxAmount);
       if (!mountedRef.current) return;
+      if (receiptPhotoUri && savedData?.id) {
+        AsyncStorage.setItem(`receipt_photo_${savedData.id}`, receiptPhotoUri).catch(() => {});
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       notifySplitSaved(splitName);
       setSaved(true);
@@ -499,7 +515,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
     >
       {/* Nombre + Moneda */}
       <View style={styles.card}>
-        <Text style={styles.label}>NOMBRE DEL SPLIT</Text>
+        <Text style={styles.label}>NOMBRE DEL DIVVI</Text>
         <View style={styles.row}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
@@ -635,8 +651,11 @@ export default function CreateSplitScreen({ navigation }: Props) {
         </View>
 
         {itemError !== '' && <Text style={styles.inlineError}>{itemError}</Text>}
+        {items.length === 0 && (
+          <Text style={styles.scanHint}>Escanear con IA · verifica precios antes de guardar.</Text>
+        )}
         {items.length === 0
-          ? <Text style={styles.emptyHint}>Agrega items para calcular el split.</Text>
+          ? <Text style={styles.emptyHint}>Agrega items para calcular el divvi.</Text>
           : items.map((item, idx) => (
             <FadeIn key={item.id} delay={idx === items.length - 1 ? 0 : 0}>
               <View style={[styles.itemRow, idx === 0 && styles.itemRowFirst]}>
@@ -754,13 +773,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
 
             {saveError !== '' && <Text style={styles.errorText}>{saveError}</Text>}
 
-            {saved && (
-              <FadeIn>
-                <View style={styles.successBanner}>
-                  <Text style={styles.successText}>divvi guardado</Text>
-                </View>
-              </FadeIn>
-            )}
+            {saved && <SavedAnimation />}
             {queued && (
               <FadeIn>
                 <View style={styles.queuedBanner}>
@@ -791,7 +804,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 60, gap: 12 },
 
@@ -820,6 +833,7 @@ const styles = StyleSheet.create({
   equalBtnText: { color: C.accent, fontSize: 12, fontWeight: '600' },
 
   emptyHint: { color: C.textMuted, fontSize: 13, marginTop: 12, textAlign: 'center' },
+  scanHint: { color: C.textDim, fontSize: 11, textAlign: 'center', marginTop: 6 },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   chip: {

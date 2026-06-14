@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>divvi — Divide la cuenta sin drama</title>
+  <meta name="description" content="divvi es la forma más rápida de dividir cuentas de restaurante con amigos. Escanea el recibo, asigna los ítems y comparte en segundos." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #6535E8;
+      --gradient: linear-gradient(135deg, #00CFFF 0%, #7B2FFF 100%);
+      --bg: #ffffff;
+      --surface: #fafafa;
+      --border: #eee;
+      --text: #111;
+      --text-sec: #555;
+      --radius: 16px;
+    }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+    /* NAV */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 40px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(12px); z-index: 10;
+    }
+    .nav-logo {
+      font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
+      background: var(--gradient); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .nav-by { font-size: 13px; color: var(--text-sec); }
+    .nav-by a { color: var(--text-sec); text-decoration: none; border-bottom: 1px solid var(--border); }
+
+    /* HERO */
+    .hero {
+      max-width: 800px; margin: 0 auto;
+      padding: 100px 40px 80px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      letter-spacing: 1px; color: var(--accent);
+      border: 1px solid #E6E0FF; background: #F8F7FF;
+      padding: 6px 14px; border-radius: 100px;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 64px); font-weight: 800;
+      line-height: 1.1; letter-spacing: -2px; margin-bottom: 24px;
+    }
+    .hero h1 span {
+      background: var(--gradient); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero p {
+      font-size: 20px; color: var(--text-sec);
+      max-width: 520px; margin: 0 auto 40px;
+    }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--text); color: #fff;
+      padding: 14px 28px; border-radius: 12px;
+      font-size: 15px; font-weight: 600; text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.8; }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; color: var(--text);
+      padding: 14px 28px; border-radius: 12px;
+      font-size: 15px; font-weight: 600; text-decoration: none;
+      border: 1px solid var(--border); transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: var(--surface); }
+
+    /* FEATURES */
+    .features {
+      max-width: 1000px; margin: 0 auto;
+      padding: 80px 40px; display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px #0001; }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--gradient); display: flex; align-items: center;
+      justify-content: center; margin-bottom: 16px;
+      font-size: 20px;
+    }
+    .feature-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: var(--text-sec); line-height: 1.6; }
+
+    /* HOW */
+    .how { max-width: 800px; margin: 0 auto; padding: 60px 40px; }
+    .how h2 { font-size: 36px; font-weight: 800; letter-spacing: -1px; margin-bottom: 48px; text-align: center; }
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step { display: flex; gap: 24px; align-items: flex-start; padding: 24px 0; border-bottom: 1px solid var(--border); }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      min-width: 36px; height: 36px; border-radius: 10px;
+      background: var(--gradient); color: #fff;
+      font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-content h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .step-content p { font-size: 14px; color: var(--text-sec); }
+
+    /* CTA */
+    .cta {
+      max-width: 600px; margin: 60px auto; padding: 60px 40px;
+      text-align: center;
+    }
+    .cta-card {
+      background: var(--gradient); border-radius: 24px;
+      padding: 56px 40px;
+    }
+    .cta-card h2 { font-size: 36px; font-weight: 800; color: #fff; letter-spacing: -1px; margin-bottom: 12px; }
+    .cta-card p { color: rgba(255,255,255,0.8); font-size: 17px; margin-bottom: 32px; }
+    .btn-white {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fff; color: var(--accent);
+      padding: 14px 32px; border-radius: 12px;
+      font-size: 15px; font-weight: 700; text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn-white:hover { opacity: 0.9; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border); padding: 32px 40px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px;
+    }
+    footer p { font-size: 13px; color: var(--text-sec); }
+    footer a { color: var(--text-sec); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .footer-links { display: flex; gap: 20px; }
+
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .hero { padding: 60px 20px 48px; }
+      .features { padding: 40px 20px; }
+      .how, .cta { padding: 40px 20px; }
+      footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <span class="nav-logo">divvi</span>
+    <span class="nav-by">by <a href="https://rosariodev.com">rosariodev</a></span>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-badge">iOS App · Próximamente en App Store</div>
+    <h1>Divide la cuenta<br /><span>sin drama</span></h1>
+    <p>Escanea el recibo, asigna los ítems a cada persona y comparte el resumen en segundos. Para el restaurante, no para la oficina.</p>
+    <div class="hero-actions">
+      <a href="#" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        App Store
+      </a>
+      <a href="mailto:contact@rosariodev.com" class="btn-secondary">Contacto</a>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature-card">
+      <div class="feature-icon">📷</div>
+      <h3>Escanea el recibo</h3>
+      <p>Apunta la cámara al recibo y divvi extrae los ítems automáticamente con IA. Sin escribir nada a mano.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">👥</div>
+      <h3>Asigna a cada persona</h3>
+      <p>Arrastra ítems a las personas o divide por igual. Propina y tax incluidos en el cálculo automático.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <h3>Comparte al instante</h3>
+      <p>Envía el resumen por WhatsApp o exporta el PDF. Cada quien sabe exactamente cuánto debe.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💳</div>
+      <h3>Registra los pagos</h3>
+      <p>Marca quién pagó y cuánto. divvi calcula quién le debe a quién y te avisa cuando todo está saldado.</p>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2>Cómo funciona</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Agrega las personas</h3>
+          <p>Escribe los nombres de los que están en la mesa. divvi recuerda tus contactos frecuentes.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Escanea o agrega los ítems</h3>
+          <p>Usa la cámara para escanear el recibo o agrega los ítems manualmente. Incluye propina e impuesto.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Asigna y calcula</h3>
+          <p>Asigna cada ítem a quien lo pidió. divvi calcula el total de cada persona automáticamente.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h3>Comparte y salda</h3>
+          <p>Envía por WhatsApp, exporta PDF o copia el monto para pedir por ATH Móvil, Zelle o Apple Cash.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta">
+    <div class="cta-card">
+      <h2>Próximamente</h2>
+      <p>divvi llega al App Store pronto. Déjanos tu email y te avisamos cuando esté disponible.</p>
+      <a href="mailto:contact@rosariodev.com?subject=Avísame cuando divvi esté disponible" class="btn-white">Avísame</a>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2026 <a href="https://rosariodev.com">rosariodev</a> · divvi</p>
+    <div class="footer-links">
+      <a href="/divvi/privacy">Política de privacidad</a>
+      <a href="mailto:contact@rosariodev.com">Soporte</a>
+    </div>
+  </footer>
+
+</body>
+</html>

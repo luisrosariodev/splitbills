@@ -12,9 +12,10 @@ export type RootStackParamList = {
   Profile: undefined;
   MainTabs: undefined;
   CreateSplit: undefined;
-  SplitDetail: { splitId: string; splitName: string };
+  SplitDetail: { splitId: string; splitName?: string };
   GroupDetail: { groupId: string; groupName: string };
   Settings: undefined;
+  Contacts: undefined;
   EditSplit: { splitId: string; splitName: string };
   Settlements: { splitId: string; splitName: string };
 };

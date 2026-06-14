@@ -12,7 +12,7 @@ import { validateSplitName, validateItemName, validatePrice, sanitize } from '..
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditSplit'>;
 
-import { T as C, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
+import { useColors, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
 const CURRENCIES = ['$', '€', '£', '¥'];
 const TIP_PRESETS = [10, 15, 18, 20];
 const TAX_PRESETS = [7, 11.5];
@@ -52,6 +52,8 @@ function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
 }
 
 export default function EditSplitScreen({ route, navigation }: Props) {
+  const C = useColors();
+  const styles = makeStyles(C);
   const { splitId } = route.params;
   const [loadingDetail, setLoadingDetail] = useState(true);
 
@@ -100,12 +102,12 @@ export default function EditSplitScreen({ route, navigation }: Props) {
           else setTax({ preset: 'custom', mode: 'amt', customVal: tax.toFixed(2) });
         }
       })
-      .catch(() => Alert.alert('Error', 'No se pudo cargar el split.'))
+      .catch(() => Alert.alert('Error', 'No se pudo cargar el divvi.'))
       .finally(() => setLoadingDetail(false));
   }, [splitId]);
 
   useEffect(() => {
-    navigation.setOptions({ title: splitName.trim() || 'Editar split' });
+    navigation.setOptions({ title: splitName.trim() || 'Editar divvi' });
   }, [splitName, navigation]);
 
   const addPerson = () => {
@@ -150,11 +152,14 @@ export default function EditSplitScreen({ route, navigation }: Props) {
 
   const saveEditItem = () => {
     if (!editingItemId) return;
-    const price = parseFloat(editPrice);
-    if (isNaN(price)) return;
+    const nameErr = validateItemName(editName);
+    if (nameErr) { setItemError(nameErr); return; }
+    const priceErr = validatePrice(editPrice);
+    if (priceErr) { setItemError(priceErr); return; }
+    setItemError('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setItems((prev) => prev.map((item) =>
-      item.id === editingItemId ? { ...item, name: editName.trim() || item.name, price } : item
+      item.id === editingItemId ? { ...item, name: editName.trim(), price: parseFloat(editPrice) } : item
     ));
     setEditingItemId(null);
   };
@@ -225,7 +230,7 @@ export default function EditSplitScreen({ route, navigation }: Props) {
 
       {/* Nombre + Moneda */}
       <View style={styles.card}>
-        <Text style={styles.label}>NOMBRE DEL SPLIT</Text>
+        <Text style={styles.label}>NOMBRE DEL DIVVI</Text>
         <View style={styles.row}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
@@ -233,7 +238,7 @@ export default function EditSplitScreen({ route, navigation }: Props) {
             onChangeText={setSplitName}
             placeholder="Cena del viernes"
             placeholderTextColor={C.textMuted}
-            accessibilityLabel="Nombre del split"
+            accessibilityLabel="Nombre del divvi"
           />
           <View style={styles.currencyPicker}>
             {CURRENCIES.map((c) => (
@@ -459,7 +464,7 @@ export default function EditSplitScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 60, gap: 12 },
   center: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },

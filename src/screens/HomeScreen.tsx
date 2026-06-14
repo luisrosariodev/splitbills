@@ -6,13 +6,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList } from '../types/navigation';
 import supabaseClient from '../lib/supabase';
 import { getQueueCount } from '../lib/offlineQueue';
-import { T, GRADIENT, FONTS } from '../lib/theme';
+import { useColors, GRADIENT, FONTS } from '../lib/theme';
 import PressScale from '../components/PressScale';
 import DivviLogo from '../components/DivviLogo';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export default function HomeScreen({ navigation }: Props) {
+  const T = useColors();
+  const s = makeStyles(T);
   const [userInitial, setUserInitial] = useState('?');
   const [queueCount, setQueueCount] = useState(0);
 
@@ -101,7 +103,7 @@ export default function HomeScreen({ navigation }: Props) {
           <View style={s.queueBadge}>
             <View style={s.queueDot} />
             <Text style={s.queueText}>
-              {queueCount} split{queueCount > 1 ? 's' : ''} pendiente{queueCount > 1 ? 's' : ''}
+              {queueCount} divvi{queueCount > 1 ? 's' : ''} pendiente{queueCount > 1 ? 's' : ''}
             </Text>
           </View>
         )}
@@ -142,7 +144,7 @@ export default function HomeScreen({ navigation }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1, backgroundColor: T.bg,
     paddingHorizontal: 24, paddingTop: 56, paddingBottom: 44,

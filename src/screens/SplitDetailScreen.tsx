@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, Linking, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Linking, Alert, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
-import { getSplitDetail, buildSingleMessage, generateSplitHTML } from '../lib/splitService';
+import { getSplitDetail, buildSingleMessage, generateSplitHTML, computePersonShares } from '../lib/splitService';
+import { getDefaultCurrency } from '../lib/settings';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SplitDetail'>;
 
-import { T as C } from '../lib/theme';
+import { useColors } from '../lib/theme';
+import { SkeletonCard } from '../components/SkeletonLoader';
 
 type Detail = Awaited<ReturnType<typeof getSplitDetail>>;
 
@@ -17,17 +20,27 @@ const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export default function SplitDetailScreen({ route, navigation }: Props) {
+  const C = useColors();
+  const styles = makeStyles(C);
   const { splitId } = route.params;
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null);
+  const [photoExpanded, setPhotoExpanded] = useState(false);
+  const [currency, setCurrency] = useState('$');
 
   useEffect(() => {
+    getDefaultCurrency().then((c) => setCurrency(c)).catch(() => {});
     getSplitDetail(splitId)
-      .then(setDetail)
-      .catch(() => setError('No se pudo cargar el split.'))
+      .then((d) => { setDetail(d); navigation.setOptions({ title: d.name }); })
+      .catch(() => setError('No se pudo cargar el divvi.'))
       .finally(() => setLoading(false));
+    AsyncStorage.getItem(`receipt_photo_${splitId}`).then((uri) => {
+      if (uri) setReceiptPhoto(uri);
+    }).catch(() => {});
   }, [splitId]);
 
   const handleExportPdf = async () => {
@@ -38,17 +51,30 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Alert.alert('Error', 'No se pudo exportar el PDF.');
+      setPdfError('No se pudo exportar el PDF.');
+      setTimeout(() => setPdfError(''), 3000);
     } finally {
       setExportingPdf(false);
     }
   };
 
-  const handleNavigateEdit = () => navigation.navigate('EditSplit', { splitId, splitName: route.params.splitName });
-  const handleNavigateSettlements = () => navigation.navigate('Settlements', { splitId, splitName: route.params.splitName });
+  const handleNavigateEdit = () => navigation.navigate('EditSplit', { splitId, splitName: detail?.name ?? route.params.splitName ?? '' });
+  const handleNavigateSettlements = () => navigation.navigate('Settlements', { splitId, splitName: detail?.name ?? route.params.splitName ?? '' });
+  const handleShareLink = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL(`https://api.whatsapp.com/send?text=${encodeURIComponent(
+      `Mira este divvi en la app: divvi://split/${splitId}`
+    )}`);
+  };
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={C.accent} /></View>;
+    return (
+      <View style={[styles.scroll, { padding: 16, gap: 12 }]}>
+        <View style={{ height: 16, width: 120, backgroundColor: C.border, borderRadius: 6, opacity: 0.6 }} />
+        <SkeletonCard rows={4} />
+        <SkeletonCard rows={3} />
+      </View>
+    );
   }
 
   if (error || !detail) {
@@ -62,20 +88,23 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
   const tip = Number(detail.tip_amount ?? 0);
   const tax = Number(detail.tax_amount ?? 0);
   const grandTotal = subtotal + tip + tax;
-  const multiplier = subtotal > 0 ? grandTotal / subtotal : 1;
-
-  const summary = detail.people.map((person) => ({
-    name: person.name,
-    total: detail.items.reduce((sum, item) => {
-      const assigned = item.item_assignments.map((a) => a.person_id);
-      if (!assigned.includes(person.id)) return sum;
-      return sum + Number(item.price) / assigned.length;
-    }, 0) * multiplier,
-  }));
+  const summary = computePersonShares(detail).map((s) => ({ name: s.name, total: s.amount }));
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <Text style={styles.date}>{formatDate(detail.created_at)}</Text>
+
+      {/* Receipt photo */}
+      {receiptPhoto && (
+        <Pressable onPress={() => setPhotoExpanded((p) => !p)} style={styles.photoWrap}>
+          <Image
+            source={{ uri: receiptPhoto }}
+            style={[styles.receiptPhoto, photoExpanded && styles.receiptPhotoExpanded]}
+            resizeMode="contain"
+          />
+          <Text style={styles.photoHint}>{photoExpanded ? 'Tocar para minimizar' : 'Tocar para ver recibo'}</Text>
+        </Pressable>
+      )}
 
       {/* Items */}
       <View style={styles.card}>
@@ -86,7 +115,7 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
             <View key={item.id} style={[styles.itemRow, idx === 0 && styles.itemRowFirst]}>
               <View style={styles.itemHeader}>
                 <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemPrice}>${Number(item.price).toFixed(2)}</Text>
+                <Text style={styles.itemPrice}>{currency}{Number(item.price).toFixed(2)}</Text>
               </View>
               {assigned.length > 0 && (
                 <Text style={styles.itemAssigned}>{assigned.join(', ')}</Text>
@@ -105,39 +134,43 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
             style={[styles.summaryRow, idx === summary.length - 1 && styles.summaryRowLast]}
           >
             <Text style={styles.summaryName}>{name}</Text>
-            <Text style={styles.summaryAmount}>${total.toFixed(2)}</Text>
+            <Text style={styles.summaryAmount}>{currency}{total.toFixed(2)}</Text>
           </View>
         ))}
         {(tip > 0 || tax > 0) && (
           <View style={styles.breakdownSection}>
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Subtotal</Text>
-              <Text style={styles.breakdownValue}>${subtotal.toFixed(2)}</Text>
+              <Text style={styles.breakdownValue}>{currency}{subtotal.toFixed(2)}</Text>
             </View>
             {tip > 0 && (
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Propina</Text>
-                <Text style={styles.breakdownValue}>+${tip.toFixed(2)}</Text>
+                <Text style={styles.breakdownValue}>+{currency}{tip.toFixed(2)}</Text>
               </View>
             )}
             {tax > 0 && (
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Impuesto</Text>
-                <Text style={styles.breakdownValue}>+${tax.toFixed(2)}</Text>
+                <Text style={styles.breakdownValue}>+{currency}{tax.toFixed(2)}</Text>
               </View>
             )}
           </View>
         )}
         <View style={styles.totalBlock}>
           <Text style={styles.totalLabel}>TOTAL</Text>
-          <Text style={styles.totalAmount}>${grandTotal.toFixed(2)}</Text>
+          <Text style={styles.totalAmount}>{currency}{grandTotal.toFixed(2)}</Text>
         </View>
       </View>
 
+      {pdfError !== '' && <Text style={styles.inlineError}>{pdfError}</Text>}
       <View style={styles.actionRow}>
         <Pressable
           style={({ pressed }) => [styles.whatsappBtn, pressed && styles.pressed]}
-          onPress={() => Linking.openURL(`https://wa.me/?text=${encodeURIComponent(buildSingleMessage(detail))}`)}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            Linking.openURL(`https://wa.me/?text=${encodeURIComponent(buildSingleMessage(detail))}`);
+          }}
           accessibilityLabel="Compartir por WhatsApp"
           accessibilityRole="button"
         >
@@ -155,12 +188,19 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
         <Pressable
           style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}
           onPress={handleNavigateEdit}
-          accessibilityLabel="Editar split"
+          accessibilityLabel="Editar divvi"
           accessibilityRole="button"
         >
           <Text style={styles.editBtnText}>Editar</Text>
         </Pressable>
       </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
+        onPress={handleShareLink}
+      >
+        <Text style={styles.linkBtnText}>Compartir enlace</Text>
+      </Pressable>
 
       <Pressable
         style={({ pressed }) => [styles.settlementsBtn, pressed && styles.pressed]}
@@ -174,11 +214,16 @@ export default function SplitDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 60, gap: 12 },
   center: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
   errorText: { color: C.danger, fontSize: 15 },
+  inlineError: { color: C.danger, fontSize: 13, textAlign: 'center', marginBottom: 4 },
+  photoWrap: { backgroundColor: C.surface, borderRadius: 16, overflow: 'hidden', alignItems: 'center' },
+  receiptPhoto: { width: '100%', height: 120 },
+  receiptPhotoExpanded: { height: 400 },
+  photoHint: { fontSize: 11, color: C.textDim, paddingVertical: 6 },
   date: { fontSize: 13, color: C.textSub, marginBottom: 4 },
   card: { backgroundColor: C.surface, borderRadius: 16, padding: 16 },
   label: { fontSize: 11, fontWeight: '600', color: C.textSub, letterSpacing: 0.8 },
@@ -238,6 +283,11 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.4 },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.88 },
 
+  linkBtn: {
+    borderWidth: 1.5, borderColor: C.border, borderRadius: 14,
+    padding: 14, alignItems: 'center',
+  },
+  linkBtnText: { color: C.textSec, fontSize: 14, fontWeight: '600' },
   settlementsBtn: {
     borderWidth: 1.5, borderColor: C.accent, padding: 16,
     borderRadius: 14, alignItems: 'center',

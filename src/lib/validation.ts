@@ -21,7 +21,7 @@ export const validateDisplayName = (name: string): string | null => {
 };
 
 export const validateSplitName = (name: string): string | null => {
-  if (!name.trim()) return 'El nombre del split es requerido.';
+  if (!name.trim()) return 'El nombre del divvi es requerido.';
   if (name.trim().length > 100) return 'Máximo 100 caracteres.';
   return null;
 };
@@ -35,7 +35,7 @@ export const validateItemName = (name: string): string | null => {
 export const validatePrice = (price: string): string | null => {
   const n = parseFloat(price);
   if (isNaN(n)) return 'Precio inválido.';
-  if (n < 0) return 'El precio no puede ser negativo.';
+  if (n <= 0) return 'El precio debe ser mayor a cero.';
   if (n > 999999) return 'Precio demasiado alto.';
   return null;
 };

@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, ActivityIndicator,
+  StyleSheet, Text, View, ScrollView,
   Pressable, Alert, RefreshControl, TextInput, Modal, Linking,
   LayoutAnimation, Platform, UIManager,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -22,14 +23,21 @@ import { RootStackParamList } from '../types/navigation';
 import {
   getSplits, deleteSplit, getGroups, createGroup, deleteGroup,
   getGroupDetail, buildGroupMessage, getSplitDetail, buildSingleMessage,
-  updateSplitName,
+  updateSplitName, generateHistoryHTML,
 } from '../lib/splitService';
-import { T as C } from '../lib/theme';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { useColors } from '../lib/theme';
+import { SkeletonCard } from '../components/SkeletonLoader';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'History'>;
 
 
-type Split = { id: string; name: string; created_at: string; people: Array<{ id: string }> };
+type Split = {
+  id: string; name: string; created_at: string;
+  people: Array<{ id: string; name: string }>;
+  settlements: Array<{ settled: boolean }>;
+};
 type Group = { id: string; name: string; created_at: string; group_splits: Array<{ split_id: string }> };
 
 const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
@@ -39,6 +47,13 @@ const isThisWeek = (iso: string) => {
 };
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const settlementStatus = (split: Split): 'settled' | 'pending' | 'none' => {
+  const s = split.settlements ?? [];
+  if (s.length === 0) return 'none';
+  if (s.every((x) => x.settled)) return 'settled';
+  return 'pending';
+};
 
 const groupByDate = (splits: Split[]) => {
   const today: Split[] = [], week: Split[] = [], older: Split[] = [];
@@ -55,6 +70,8 @@ const groupByDate = (splits: Split[]) => {
 };
 
 export default function HistoryScreen({ navigation }: Props) {
+  const C = useColors();
+  const styles = makeStyles(C);
   const [splits, setSplits] = useState<Split[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,9 +123,27 @@ export default function HistoryScreen({ navigation }: Props) {
         title: selectedIds.size > 0 ? `${selectedIds.size} seleccionado${selectedIds.size > 1 ? 's' : ''}` : 'Seleccionar',
       });
     } else {
-      navigation.setOptions({ headerLeft: undefined, title: 'Historial' });
+      navigation.setOptions({
+        headerLeft: undefined,
+        title: 'Historial',
+        headerRight: () => (
+          <Pressable onPress={handleExportHistory} hitSlop={12} style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1, marginRight: 4 }]}>
+            <Text style={{ color: C.accent, fontSize: 14, fontWeight: '600' }}>Exportar</Text>
+          </Pressable>
+        ),
+      });
     }
-  }, [selectionMode, selectedIds.size]);
+  }, [selectionMode, selectedIds.size, C]);
+
+  const handleExportHistory = async () => {
+    try {
+      const html = await generateHistoryHTML();
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+    } catch {
+      Alert.alert('Error', 'No se pudo exportar el historial.');
+    }
+  };
 
   const enterSelection = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -161,7 +196,7 @@ export default function HistoryScreen({ navigation }: Props) {
       const msg = buildSingleMessage(detail);
       Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
     } catch {
-      Alert.alert('Error', 'No se pudo cargar el split.');
+      Alert.alert('Error', 'No se pudo cargar el divvi.');
     } finally {
       setSharingId(null);
     }
@@ -199,7 +234,7 @@ export default function HistoryScreen({ navigation }: Props) {
 
   const confirmDeleteSplit = (split: Split) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Eliminar split', `¿Eliminar "${split.name}"?`, [
+    Alert.alert('Eliminar divvi', `¿Eliminar "${split.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar', style: 'destructive', onPress: async () => {
@@ -231,12 +266,28 @@ export default function HistoryScreen({ navigation }: Props) {
     ]);
   };
 
-  const filteredSplits = splits.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
-  const filteredGroups = groups.filter((g) => g.name.toLowerCase().includes(search.toLowerCase()));
+  const q = search.toLowerCase();
+  const filteredSplits = splits.filter((s) =>
+    s.name.toLowerCase().includes(q) ||
+    s.people.some((p) => p.name.toLowerCase().includes(q))
+  );
+  const filteredGroups = groups.filter((g) => g.name.toLowerCase().includes(q));
   const sections = groupByDate(filteredSplits);
   const isEmpty = filteredSplits.length === 0 && filteredGroups.length === 0;
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={C.accent} /></View>;
+  if (loading) return (
+    <View style={[styles.scroll, { padding: 16, gap: 20 }]}>
+      <View style={{ height: 44, backgroundColor: C.surface, borderRadius: 12, marginBottom: 8 }} />
+      <View style={{ gap: 6 }}>
+        <View style={{ height: 13, width: 80, backgroundColor: C.border, borderRadius: 6, marginBottom: 4 }} />
+        <SkeletonCard rows={3} />
+      </View>
+      <View style={{ gap: 6 }}>
+        <View style={{ height: 13, width: 100, backgroundColor: C.border, borderRadius: 6, marginBottom: 4 }} />
+        <SkeletonCard rows={2} />
+      </View>
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -275,7 +326,7 @@ export default function HistoryScreen({ navigation }: Props) {
                     <View style={styles.rowMain}>
                       <Text style={styles.rowName}>{group.name}</Text>
                       <Text style={styles.rowMeta}>
-                        {group.group_splits.length} splits · {formatDate(group.created_at)}
+                        {group.group_splits.length} divvi{group.group_splits.length !== 1 ? 's' : ''} · {formatDate(group.created_at)}
                       </Text>
                     </View>
                     <View style={styles.rowRight}>
@@ -301,45 +352,67 @@ export default function HistoryScreen({ navigation }: Props) {
                 const isSelected = selectedIds.has(split.id);
                 return (
                   <View key={split.id}>
-                    <Pressable
-                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed, isSelected && styles.rowSelected]}
-                      onPress={() => selectionMode ? toggleSelect(split.id) : navigation.navigate('SplitDetail', { splitId: split.id, splitName: split.name })}
-                      onLongPress={() => handleLongPressSplit(split)}
+                    <Swipeable
+                      enabled={!selectionMode}
+                      renderRightActions={() => (
+                        <Pressable
+                          style={styles.swipeDelete}
+                          onPress={() => confirmDeleteSplit(split)}
+                        >
+                          <Text style={styles.swipeDeleteText}>Eliminar</Text>
+                        </Pressable>
+                      )}
                     >
-                      {selectionMode ? (
-                        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                          {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      <Pressable
+                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed, isSelected && styles.rowSelected]}
+                        onPress={() => selectionMode ? toggleSelect(split.id) : navigation.navigate('SplitDetail', { splitId: split.id, splitName: split.name })}
+                        onLongPress={() => handleLongPressSplit(split)}
+                      >
+                        {selectionMode ? (
+                          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                            {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                          </View>
+                        ) : (
+                          <View style={[styles.avatar, { backgroundColor: C.accent + '18' }]}>
+                            <Text style={styles.avatarText}>{split.name.charAt(0).toUpperCase()}</Text>
+                          </View>
+                        )}
+                        <View style={styles.rowMain}>
+                          <Text style={styles.rowName}>{split.name}</Text>
+                          <Text style={styles.rowMeta}>
+                            {split.people.length <= 3
+                              ? split.people.map((p) => p.name).join(', ')
+                              : `${split.people.length} personas`
+                            } · {formatDate(split.created_at)}
+                          </Text>
                         </View>
-                      ) : (
-                        <View style={[styles.avatar, { backgroundColor: C.accent + '18' }]}>
-                          <Text style={styles.avatarText}>{split.name.charAt(0).toUpperCase()}</Text>
-                        </View>
-                      )}
-                      <View style={styles.rowMain}>
-                        <Text style={styles.rowName}>{split.name}</Text>
-                        <Text style={styles.rowMeta}>
-                          {split.people.length} {split.people.length === 1 ? 'persona' : 'personas'} · {formatDate(split.created_at)}
-                        </Text>
-                      </View>
-                      {!selectionMode && (
-                        <View style={styles.rowRight}>
-                          <Pressable
-                            onPress={() => handleShareSplit(split)}
-                            hitSlop={12}
-                            style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.5 }]}
-                            disabled={sharingId === split.id}
-                          >
-                            <Text style={styles.shareBtnText}>
-                              {sharingId === split.id ? '...' : 'WA'}
-                            </Text>
-                          </Pressable>
-                          <Pressable onPress={() => confirmDeleteSplit(split)} hitSlop={12} style={({ pressed }) => [{ opacity: pressed ? 0.4 : 1 }]}>
-                            <Text style={styles.deleteText}>×</Text>
-                          </Pressable>
-                          <Text style={styles.chevron}>›</Text>
-                        </View>
-                      )}
-                    </Pressable>
+                        {!selectionMode && (
+                          <View style={styles.rowRight}>
+                            {settlementStatus(split) === 'settled' && (
+                              <View style={styles.settledBadge}>
+                                <Text style={styles.settledBadgeText}>Saldado</Text>
+                              </View>
+                            )}
+                            {settlementStatus(split) === 'pending' && (
+                              <View style={styles.pendingBadge}>
+                                <Text style={styles.pendingBadgeText}>Pendiente</Text>
+                              </View>
+                            )}
+                            <Pressable
+                              onPress={() => handleShareSplit(split)}
+                              hitSlop={12}
+                              style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.5 }]}
+                              disabled={sharingId === split.id}
+                            >
+                              <Text style={styles.shareBtnText}>
+                                {sharingId === split.id ? '...' : 'WA'}
+                              </Text>
+                            </Pressable>
+                            <Text style={styles.chevron}>›</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    </Swipeable>
                     {idx < section.data.length - 1 && <View style={styles.divider} />}
                   </View>
                 );
@@ -351,9 +424,9 @@ export default function HistoryScreen({ navigation }: Props) {
         {isEmpty && (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyIcon}>🧾</Text>
-            <Text style={styles.emptyTitle}>{search ? 'Sin resultados' : 'Sin splits aun'}</Text>
+            <Text style={styles.emptyTitle}>{search ? 'Sin resultados' : 'Sin divvis aun'}</Text>
             <Text style={styles.emptySubtitle}>
-              {search ? `No hay splits con "${search}".` : 'Los splits guardados apareceran aqui.'}
+              {search ? `No hay divvis con "${search}".` : 'Los divvis guardados apareceran aqui.'}
             </Text>
           </View>
         )}
@@ -363,7 +436,7 @@ export default function HistoryScreen({ navigation }: Props) {
       {selectionMode && (
         <View style={styles.floatingBar}>
           <Text style={styles.floatingBarHint}>
-            {selectedIds.size < 2 ? 'Selecciona 2+ splits para agrupar' : `${selectedIds.size} splits seleccionados`}
+            {selectedIds.size < 2 ? 'Selecciona 2+ divvis para agrupar' : `${selectedIds.size} divvis seleccionados`}
           </Text>
           <Pressable
             style={({ pressed }) => [
@@ -383,7 +456,7 @@ export default function HistoryScreen({ navigation }: Props) {
       <Modal visible={renameId !== null} transparent animationType="fade" onRequestClose={() => setRenameId(null)}>
         <Pressable style={styles.modalOverlay} onPress={() => setRenameId(null)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Renombrar split</Text>
+            <Text style={styles.modalTitle}>Renombrar divvi</Text>
             <TextInput
               style={styles.modalInput}
               value={renameInput}
@@ -421,7 +494,7 @@ export default function HistoryScreen({ navigation }: Props) {
         <Pressable style={styles.modalOverlay} onPress={() => setShowModal(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Nombre del grupo</Text>
-            <Text style={styles.modalSubtitle}>{selectedIds.size} splits seleccionados</Text>
+            <Text style={styles.modalSubtitle}>{selectedIds.size} divvis seleccionados</Text>
             <TextInput
               style={styles.modalInput}
               placeholder='Ej: Rincón Weekend'
@@ -460,7 +533,7 @@ export default function HistoryScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 120, gap: 4 },
   contentEmpty: { flex: 1 },
@@ -500,8 +573,23 @@ const styles = StyleSheet.create({
   checkmark: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   deleteText: { color: C.textMuted, fontSize: 20, lineHeight: 22 },
+  swipeDelete: {
+    backgroundColor: C.danger, justifyContent: 'center',
+    alignItems: 'flex-end', paddingHorizontal: 20,
+  },
+  swipeDeleteText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   chevron: { fontSize: 20, color: C.textMuted, fontWeight: '300' },
 
+  settledBadge: {
+    backgroundColor: C.successBg, borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
+  settledBadgeText: { color: C.success, fontSize: 10, fontWeight: '700' },
+  pendingBadge: {
+    backgroundColor: C.warningBg, borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
+  pendingBadgeText: { color: C.warning, fontSize: 10, fontWeight: '700' },
   shareBtn: {
     backgroundColor: C.whatsapp, borderRadius: 6,
     paddingHorizontal: 7, paddingVertical: 3,

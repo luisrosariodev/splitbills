@@ -3,12 +3,14 @@ import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Switc
 import * as Haptics from 'expo-haptics';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { getDefaultCurrency, setDefaultCurrency, getDefaultTip, setDefaultTip, getBiometricEnabled, setBiometricEnabled } from '../lib/settings';
-import { T } from '../lib/theme';
+import { useColors } from '../lib/theme';
 
 const CURRENCIES = ['$', '€', '£', '¥'];
 const TIP_PRESETS = [0, 10, 15, 18, 20];
 
 export default function SettingsScreen() {
+  const T = useColors();
+  const s = makeStyles(T);
   const [currency, setCurrencyState] = useState('$');
   const [tip, setTipState] = useState(0);
   const [biometric, setBiometricState] = useState(false);
@@ -111,13 +113,13 @@ export default function SettingsScreen() {
       )}
 
       <Text style={s.hint}>
-        Se aplican al abrir un nuevo split.
+        Se aplican al abrir un nuevo divvi.
       </Text>
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: T.bg },
   content: { padding: 20, paddingBottom: 60, gap: 14 },
   center: { flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' },

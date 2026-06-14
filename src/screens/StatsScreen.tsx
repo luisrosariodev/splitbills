@@ -1,29 +1,41 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { getFullStats } from '../lib/splitService';
-import { T, GRADIENT, AVATAR_PALETTE } from '../lib/theme';
+import { useColors, GRADIENT, AVATAR_PALETTE } from '../lib/theme';
 import { useScreenAnimation } from '../hooks/useScreenAnimation';
 import { Animated } from 'react-native';
+import { SkeletonCard } from '../components/SkeletonLoader';
 
 type Stats = Awaited<ReturnType<typeof getFullStats>>;
 
 const avatarColor = (i: number) => AVATAR_PALETTE[i % AVATAR_PALETTE.length];
 
 export default function StatsScreen() {
+  const T = useColors();
+  const s = makeStyles(T);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const anims = useScreenAnimation(4, { stagger: 90, duration: 420 });
 
-  useEffect(() => {
-    getFullStats()
-      .then(setStats)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try { setStats(await getFullStats()); } catch {}
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onRefresh = () => { setRefreshing(true); load(true); };
+
   if (loading) return (
-    <View style={s.center}><ActivityIndicator color={T.accent} size="large" /></View>
+    <View style={[s.scroll, { padding: 20, gap: 14 }]}>
+      <View style={{ height: 110, backgroundColor: T.border, borderRadius: 20, opacity: 0.5 }} />
+      <SkeletonCard rows={2} />
+      <SkeletonCard rows={3} />
+    </View>
   );
 
   if (!stats) return (
@@ -36,7 +48,12 @@ export default function StatsScreen() {
   const maxBar = Math.max(stats.thisMonth, stats.lastMonth, 1);
 
   return (
-    <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={s.scroll}
+      contentContainerStyle={s.content}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.accent} />}
+    >
 
       {/* Header stat */}
       <Animated.View style={anims[0]}>
@@ -118,7 +135,7 @@ export default function StatsScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: T.bg },
   content: { padding: 20, paddingBottom: 60, gap: 14 },
   center: { flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' },

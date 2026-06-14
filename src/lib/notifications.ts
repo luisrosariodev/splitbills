@@ -34,12 +34,24 @@ export const notifySplitSaved = async (splitName: string): Promise<void> => {
   }
 };
 
+export const notifyPaymentSettled = async (payerName: string, amount: number): Promise<void> => {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Pago registrado',
+        body: `${payerName} pagó $${amount.toFixed(2)}.`,
+      },
+      trigger: null,
+    });
+  } catch {}
+};
+
 export const notifyQueueSynced = async (count: number): Promise<void> => {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Sincronización completa',
-        body: `${count} split${count > 1 ? 's sincronizados' : ' sincronizado'}.`,
+        body: `${count} divvi${count > 1 ? 's sincronizados' : ' sincronizado'}.`,
       },
       trigger: null,
     });

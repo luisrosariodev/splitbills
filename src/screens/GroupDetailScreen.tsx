@@ -9,7 +9,7 @@ import { getGroupDetail, buildGroupMessage, SplitDetail } from '../lib/splitServ
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetail'>;
 
-import { T as C, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
+import { useColors, AVATAR_PALETTE as AVATAR_COLORS } from '../lib/theme';
 const avatarColor = (idx: number) => AVATAR_COLORS[idx % AVATAR_COLORS.length];
 const initials = (name: string) => name.trim().charAt(0).toUpperCase();
 const fmt = (n: number) => `$${n.toFixed(2)}`;
@@ -83,6 +83,8 @@ const aggregatePeople = (splits: SplitDetail[]): PersonRow[] => {
 };
 
 export default function GroupDetailScreen({ route, navigation }: Props) {
+  const C = useColors();
+  const styles = makeStyles(C);
   const { groupId, groupName } = route.params;
   const [splits, setSplits] = useState<SplitDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +169,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 60, gap: 12 },
   center: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },

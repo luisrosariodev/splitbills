@@ -1,6 +1,7 @@
 // divvi by rosariodev
 // Product accent: #0B5884 (rosariodev blue) → gradient endpoint #00CFFF
 // Font: Sansation (rosariodev brand) — loaded via expo-font
+import { useColorScheme } from 'react-native';
 
 export const GRADIENT = ['#00CFFF', '#0B5884'] as const;
 
@@ -47,6 +48,38 @@ export const T = {
   // ── Brand ────────────────────────────────────────────────
   whatsapp: '#25D366',
 };
+
+export const DARK = {
+  bg:          '#0D0E17',
+  surface:     '#161825',
+  surfaceAlt:  '#1C1E2E',
+  surfaceHigh: '#1F2133',
+  overlay:     '#1C1E2E',
+  border:       '#2A2D45',
+  borderMid:    '#3A3E5C',
+  borderStrong: '#4A4F74',
+  text:     '#EEF0FF',
+  textSec:  '#9B9EC4',
+  textSub:  '#9B9EC4',
+  textDim:  '#636690',
+  textMuted:'#636690',
+  accent:       '#0B5884',
+  accentDim:    'rgba(11, 88, 132, 0.18)',
+  accentSubtle: 'rgba(11, 88, 132, 0.18)',
+  accentText:   '#4AADDF',
+  success:   '#1DB87A',
+  successBg: 'rgba(29, 184, 122, 0.15)',
+  warning:   '#D97706',
+  warningBg: 'rgba(217, 119, 6, 0.15)',
+  danger:    '#E53E3E',
+  dangerBg:  'rgba(229, 62, 62, 0.15)',
+  whatsapp: '#25D366',
+};
+
+export function useColors() {
+  const scheme = useColorScheme();
+  return scheme === 'dark' ? DARK : T;
+}
 
 // Avatar palette — blue-anchored
 export const AVATAR_PALETTE = [

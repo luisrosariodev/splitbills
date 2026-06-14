@@ -10,9 +10,10 @@ import {
   getProfile, updateProfile, updatePassword,
   deleteAllUserData, getUserStats,
 } from '../lib/splitService';
+import { getDefaultCurrency } from '../lib/settings';
 import supabaseClient from '../lib/supabase';
 import { validateDisplayName, validatePassword } from '../lib/validation';
-import { T, GRADIENT } from '../lib/theme';
+import { useColors, GRADIENT } from '../lib/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useScreenAnimation } from '../hooks/useScreenAnimation';
 import PressScale from '../components/PressScale';
@@ -20,12 +21,15 @@ import PressScale from '../components/PressScale';
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export default function ProfileScreen({ navigation }: Props) {
+  const T = useColors();
+  const s = makeStyles(T);
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [pwInput, setPwInput] = useState('');
   const [pwConfirm, setPwConfirm] = useState('');
   const [stats, setStats] = useState<{ splitCount: number; totalEstimated: number } | null>(null);
+  const [currency, setCurrency] = useState('$');
   const [loading, setLoading] = useState(true);
   const [savingName, setSavingName] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
@@ -36,6 +40,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const anims = useScreenAnimation(5, { stagger: 80, duration: 400, fromY: 18 });
 
   useEffect(() => {
+    getDefaultCurrency().then((c) => setCurrency(c)).catch(() => {});
     Promise.all([getProfile(), getUserStats()])
       .then(([profile, s]) => {
         setEmail(profile.email);
@@ -83,7 +88,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const handleDeleteAccount = () => Alert.alert(
     'Eliminar cuenta',
-    'Se borrarán todos tus splits, grupos y datos. Esta acción no se puede deshacer.',
+    'Se borrarán todos tus divvis, grupos y datos. Esta acción no se puede deshacer.',
     [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar todo', style: 'destructive', onPress: async () => {
@@ -122,7 +127,7 @@ export default function ProfileScreen({ navigation }: Props) {
               <Text style={s.statLabel}>SPLITS</Text>
             </View>
             <View style={[s.statCard, { flex: 1.5 }]}>
-              <Text style={s.statNum}>${stats.totalEstimated.toFixed(0)}</Text>
+              <Text style={s.statNum}>{currency}{stats.totalEstimated.toFixed(0)}</Text>
               <Text style={s.statLabel}>TOTAL DIVIDIDO</Text>
             </View>
           </View>
@@ -186,6 +191,11 @@ export default function ProfileScreen({ navigation }: Props) {
       {/* Navigation rows */}
       <Animated.View style={anims[3]}>
         <View style={s.rowList}>
+          <PressScale onPress={() => navigation.navigate('Contacts')} style={s.row} haptic="light">
+            <Text style={s.rowLabel}>Contactos</Text>
+            <Text style={s.chevron}>›</Text>
+          </PressScale>
+          <View style={s.divider} />
           <PressScale onPress={() => navigation.navigate('Settings')} style={s.row} haptic="light">
             <Text style={s.rowLabel}>Configuración</Text>
             <Text style={s.chevron}>›</Text>
@@ -250,7 +260,7 @@ export default function ProfileScreen({ navigation }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   scroll: { flex: 1, backgroundColor: T.bg },
   content: { padding: 20, paddingBottom: 64, gap: 12 },
   center: { flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' },

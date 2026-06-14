@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import supabaseClient from '../lib/supabase';
 import { validateEmail, validatePassword, sanitize } from '../lib/validation';
-import { T, GRADIENT } from '../lib/theme';
+import { useColors, GRADIENT } from '../lib/theme';
 import { useScreenAnimation } from '../hooks/useScreenAnimation';
 import PressScale from '../components/PressScale';
 import DivviLogo from '../components/DivviLogo';
@@ -19,6 +19,8 @@ const ERROR_MAP: Record<string, string> = {
 };
 
 export default function AuthScreen() {
+  const T = useColors();
+  const s = makeStyles(T);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,7 +86,7 @@ export default function AuthScreen() {
           </Text>
           <Text style={s.subheading}>
             {mode === 'login'
-              ? 'Inicia sesión para ver tus splits.'
+              ? 'Inicia sesión para ver tus divvis.'
               : 'Únete y empieza a dividir en segundos.'}
           </Text>
         </Animated.View>
@@ -171,7 +173,7 @@ export default function AuthScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: T.bg },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 64 },
 

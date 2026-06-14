@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, Text, View, Animated, Pressable, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { T, GRADIENT } from '../lib/theme';
+import { useColors, GRADIENT } from '../lib/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +27,8 @@ const SLIDES = [
 export const ONBOARDING_KEY = 'divvi_onboarding_done';
 
 export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
+  const T = useColors();
+  const s = makeStyles(T);
   const [index, setIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -105,7 +107,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1, backgroundColor: T.bg,
     paddingHorizontal: 28, paddingTop: 72, paddingBottom: 52,

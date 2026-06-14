@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, AppState, Text, Pressable, StyleSheet, LogBox } from 'react-native';
+import { View, AppState, Text, Pressable, StyleSheet, LogBox, useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 LogBox.ignoreLogs([
   'AuthRetryableFetchError',
@@ -7,7 +8,7 @@ LogBox.ignoreLogs([
   'AuthInvalidCredentialsError',
 ]);
 import { useFonts } from 'expo-font';
-import { NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import type { LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -23,7 +24,9 @@ import supabaseClient from './src/lib/supabase';
 import { RootStackParamList, TabParamList } from './src/types/navigation';
 import { syncOfflineQueue } from './src/lib/splitService';
 import { getBiometricEnabled } from './src/lib/settings';
-import { T, FONTS } from './src/lib/theme';
+import { requestNotificationPermission } from './src/lib/notifications';
+import { useColors, FONTS } from './src/lib/theme';
+import OfflineBanner from './src/components/OfflineBanner';
 
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -35,6 +38,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditSplitScreen from './src/screens/EditSplitScreen';
 import SettlementsScreen from './src/screens/SettlementsScreen';
+import ContactsScreen from './src/screens/ContactsScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import OnboardingScreen, { ONBOARDING_KEY } from './src/screens/OnboardingScreen';
 
@@ -43,6 +47,8 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 function BiometricGate({ onUnlock }: { onUnlock: () => void }) {
   const [failed, setFailed] = useState(false);
+  const T = useColors();
+  const gate = makeGateStyles(T);
 
   const authenticate = async () => {
     setFailed(false);
@@ -80,7 +86,7 @@ function BiometricGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-const gate = StyleSheet.create({
+const makeGateStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1, backgroundColor: T.bg,
     alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -116,6 +122,8 @@ const TAB_CONFIG: Record<TabName, {
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const T = useColors();
+  const tb = makeTbStyles(T);
 
   return (
     <View style={[tb.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -157,7 +165,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const tb = StyleSheet.create({
+const makeTbStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   wrapper: {
     backgroundColor: T.bg,
     paddingHorizontal: 16,
@@ -200,6 +208,7 @@ const tb = StyleSheet.create({
 });
 
 function MainTabs() {
+  const T = useColors();
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -230,15 +239,17 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
-const stackOptions = {
-  headerStyle: { backgroundColor: T.surface },
-  headerShadowVisible: false,
-  headerTitleStyle: { fontWeight: '700' as const, color: T.text, fontSize: 17, letterSpacing: -0.2 },
-  headerTintColor: T.accent,
-  contentStyle: { backgroundColor: T.bg },
-};
-
 export default function App() {
+  const T = useColors();
+  const colorScheme = useColorScheme();
+  const stackOptions = {
+    headerStyle: { backgroundColor: T.surface },
+    headerShadowVisible: false,
+    headerTitleStyle: { fontWeight: '700' as const, color: T.text, fontSize: 17, letterSpacing: -0.2 },
+    headerTintColor: T.accent,
+    contentStyle: { backgroundColor: T.bg },
+  };
+
   const [fontsLoaded] = useFonts({
     [FONTS.regular]: require('./assets/fonts/Sansation-Regular.ttf'),
     [FONTS.bold]:    require('./assets/fonts/Sansation-Bold.ttf'),
@@ -259,6 +270,7 @@ export default function App() {
           supabaseClient.auth.getSession(),
           AsyncStorage.getItem(ONBOARDING_KEY),
           getBiometricEnabled(),
+          requestNotificationPermission(),
         ]);
         setSession(s);
         setOnboarded(done === '1');
@@ -317,19 +329,21 @@ export default function App() {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <NavigationContainer linking={linking}>
+      <OfflineBanner />
+      <NavigationContainer theme={colorScheme === 'dark' ? DarkTheme : DefaultTheme} linking={linking}>
         <Stack.Navigator screenOptions={stackOptions}>
           {session ? (
             <>
               <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
               <Stack.Screen name="CreateSplit" component={CreateSplitScreen} options={{ title: 'Nuevo divvi' }} />
               <Stack.Screen name="SplitDetail" component={SplitDetailScreen}
-                options={({ route }) => ({ title: route.params.splitName })} />
+                options={({ route }) => ({ title: route.params.splitName ?? '' })} />
               <Stack.Screen name="GroupDetail" component={GroupDetailScreen}
                 options={({ route }) => ({ title: route.params.groupName })} />
               <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Configuración' }} />
+              <Stack.Screen name="Contacts" component={ContactsScreen} options={{ title: 'Contactos' }} />
               <Stack.Screen name="EditSplit" component={EditSplitScreen}
                 options={({ route }) => ({ title: route.params.splitName })} />
               <Stack.Screen name="Settlements" component={SettlementsScreen}
@@ -340,6 +354,6 @@ export default function App() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-    </>
+    </GestureHandlerRootView>
   );
 }

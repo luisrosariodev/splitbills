@@ -8,11 +8,13 @@ import { notifyQueueSynced } from './notifications';
 export const getSplits = async () => {
   const { data, error } = await supabaseClient
     .from('splits')
-    .select('id, name, created_at, people(id)')
+    .select('id, name, created_at, people(id, name), settlements(settled)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as Array<{
-    id: string; name: string; created_at: string; people: Array<{ id: string }>;
+    id: string; name: string; created_at: string;
+    people: Array<{ id: string; name: string }>;
+    settlements: Array<{ settled: boolean }>;
   }>;
 };
 
@@ -46,7 +48,7 @@ export const deleteSplit = async (splitId: string) => {
   if (error) throw error;
 };
 
-export const saveSplt = async (
+export const saveSplit = async (
   title: string,
   people: Person[],
   items: Item[],
@@ -101,9 +103,10 @@ export const updateSplit = async (
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('No autenticado');
 
-  await supabaseClient.from('splits')
+  const { error: updateErr } = await supabaseClient.from('splits')
     .update({ name: title, tip_amount: tipAmount, tax_amount: taxAmount })
     .eq('id', splitId).eq('user_id', user.id);
+  if (updateErr) throw updateErr;
 
   // Get existing item IDs to delete their assignments first
   const { data: existingItems } = await supabaseClient
@@ -235,6 +238,7 @@ export const deleteAllUserData = async () => {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('No autenticado');
   // Delete groups, splits cascade-deletes people/items/assignments
+  await supabaseClient.from('saved_contacts').delete().eq('user_id', user.id);
   await supabaseClient.from('groups').delete().eq('user_id', user.id);
   await supabaseClient.from('splits').delete().eq('user_id', user.id);
   await supabaseClient.from('profiles').delete().eq('user_id', user.id);
@@ -309,6 +313,64 @@ export const markSettled = async (settlementId: string): Promise<void> => {
   if (error) throw error;
 };
 
+export const recordPayment = async (
+  splitId: string, payerName: string, payeeName: string, amount: number
+): Promise<string> => {
+  const { data, error } = await supabaseClient.from('settlements')
+    .insert({ split_id: splitId, payer_name: payerName, payee_name: payeeName, amount, settled: true, settled_at: new Date().toISOString() })
+    .select('id').single();
+  if (error) throw error;
+  return data.id;
+};
+
+export const deleteSettlement = async (settlementId: string): Promise<void> => {
+  const { error } = await supabaseClient.from('settlements').delete().eq('id', settlementId);
+  if (error) throw error;
+};
+
+// ── Export history ────────────────────────────────────────
+
+export const generateHistoryHTML = async (): Promise<string> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) throw new Error('No autenticado');
+
+  const { data } = await supabaseClient
+    .from('splits')
+    .select('id, name, created_at, tip_amount, tax_amount, items(name, price)')
+    .order('created_at', { ascending: false });
+
+  const splits = data ?? [];
+  const fmt = (n: number) => `$${Number(n).toFixed(2)}`;
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const rows = splits.map((s: any) => {
+    const subtotal = (s.items ?? []).reduce((sum: number, i: any) => sum + Number(i.price), 0);
+    const total = subtotal + Number(s.tip_amount ?? 0) + Number(s.tax_amount ?? 0);
+    return `<tr><td>${fmtDate(s.created_at)}</td><td>${s.name}</td><td>${(s.items ?? []).length}</td><td>${fmt(total)}</td></tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <style>
+    body{font-family:system-ui,sans-serif;padding:24px;color:#160C2E}
+    h1{font-size:22px;font-weight:800;margin-bottom:4px}
+    p{color:#6A5D8C;font-size:13px;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:11px;letter-spacing:1px;color:#6535E8;padding:8px 12px;border-bottom:2px solid #E6E0FF}
+    td{padding:10px 12px;border-bottom:1px solid #E6E0FF;font-size:14px}
+    tr:last-child td{border-bottom:none}
+    .total{text-align:right;padding-top:16px;font-weight:700;font-size:15px}
+  </style></head><body>
+  <h1>Historial de divvis</h1>
+  <p>Generado con divvi · rosariodev</p>
+  <table>
+    <thead><tr><th>FECHA</th><th>NOMBRE</th><th>ITEMS</th><th>TOTAL</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="total">${splits.length} divvi${splits.length !== 1 ? 's' : ''} en total</div>
+  </body></html>`;
+};
+
 // ── Enhanced stats ─────────────────────────────────────────
 
 export const getFullStats = async (): Promise<{
@@ -356,6 +418,54 @@ export const getFullStats = async (): Promise<{
 // ── Message builders ──────────────────────────────────────
 
 export type SplitDetail = Awaited<ReturnType<typeof getSplitDetail>>;
+
+// paidAmounts: how much each person actually paid at the restaurant
+// Returns optimized debt list: who owes who and how much
+export const computeNetDebts = (
+  detail: SplitDetail,
+  paidAmounts: Record<string, number>,
+): Array<{ debtor: string; creditor: string; amount: number }> => {
+  const shares = computePersonShares(detail);
+  const balances: Record<string, number> = {};
+  shares.forEach(({ name, amount }) => {
+    balances[name] = (paidAmounts[name] ?? 0) - amount;
+  });
+
+  const creditors = Object.entries(balances).filter(([, v]) => v > 0.005).map(([n, v]) => ({ name: n, amount: v }));
+  const debtors = Object.entries(balances).filter(([, v]) => v < -0.005).map(([n, v]) => ({ name: n, amount: -v }));
+  const debts: Array<{ debtor: string; creditor: string; amount: number }> = [];
+
+  let ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const transfer = Math.min(creditors[ci].amount, debtors[di].amount);
+    if (transfer > 0.005) debts.push({ debtor: debtors[di].name, creditor: creditors[ci].name, amount: transfer });
+    creditors[ci].amount -= transfer;
+    debtors[di].amount -= transfer;
+    if (creditors[ci].amount < 0.005) ci++;
+    if (debtors[di].amount < 0.005) di++;
+  }
+  return debts;
+};
+
+export const computePersonShares = (detail: SplitDetail): Array<{ name: string; amount: number }> => {
+  const subtotal = detail.items.reduce((s, i) => s + Number(i.price), 0);
+  const tip = Number(detail.tip_amount ?? 0);
+  const tax = Number(detail.tax_amount ?? 0);
+  const multiplier = subtotal > 0 ? (subtotal + tip + tax) / subtotal : 1;
+  const nameById: Record<string, string> = {};
+  detail.people.forEach((p) => { nameById[p.id] = p.name; });
+  const shares: Record<string, number> = {};
+  detail.people.forEach((p) => { shares[p.name] = 0; });
+  detail.items.forEach((item) => {
+    const assigned = item.item_assignments.map((a) => a.person_id);
+    if (assigned.length === 0) return;
+    const share = (Number(item.price) * multiplier) / assigned.length;
+    assigned.forEach((pid) => {
+      if (nameById[pid]) shares[nameById[pid]] = (shares[nameById[pid]] ?? 0) + share;
+    });
+  });
+  return detail.people.map((p) => ({ name: p.name, amount: shares[p.name] ?? 0 }));
+};
 
 export const buildSingleMessage = (split: SplitDetail, currency = '$'): string => {
   const fmt = (n: number) => `${currency}${n.toFixed(2)}`;
@@ -452,7 +562,7 @@ export const syncOfflineQueue = async (): Promise<void> => {
   let synced = 0;
   for (const entry of queue) {
     try {
-      await saveSplt(entry.title, entry.people, entry.items, entry.tipAmount, entry.taxAmount);
+      await saveSplit(entry.title, entry.people, entry.items, entry.tipAmount, entry.taxAmount);
       await removeFromQueue(entry.id);
       synced++;
     } catch {
@@ -518,6 +628,6 @@ export const generateSplitHTML = (split: SplitDetail, currency = '$'): string =>
       ${tax > 0 ? `<div class="breakdown-row"><span>Impuesto</span><span>+${fmt(tax)}</span></div>` : ''}
     </div>
     <div class="total-row"><span class="total-label">Total</span><span class="total-amount">${fmt(grandTotal)}</span></div>
-    <div class="footer">Generado con SplitBills</div>
+    <div class="footer">Generado con divvi · rosariodev</div>
   </body></html>`;
 };

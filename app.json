@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "plugins": [
       [
         "expo-local-authentication",
@@ -24,8 +24,9 @@
         "LSApplicationQueriesSchemes": [
           "whatsapp"
         ],
-        "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a la biblioteca de fotos para que puedas compartir tus splits con tus amigos.",
-        "NSFaceIDUsageDescription": "Usa Face ID para acceder a divvi de forma segura."
+        "NSPhotoLibraryUsageDescription": "divvi necesita acceso a tus fotos para escanear recibos de restaurante.",
+        "NSFaceIDUsageDescription": "Usa Face ID para acceder a divvi de forma segura.",
+        "NSCameraUsageDescription": "Usa la cámara para escanear recibos de restaurante directamente."
       }
     },
     "android": {

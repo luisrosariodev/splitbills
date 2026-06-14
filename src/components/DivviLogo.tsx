@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRADIENT, T } from '../lib/theme';
+import { useColors, GRADIENT } from '../lib/theme';
 
 interface Props {
   size?: 'sm' | 'md' | 'lg';
@@ -14,6 +14,7 @@ const SIZES = {
 };
 
 export default function DivviLogo({ size = 'md', showWordmark = true }: Props) {
+  const T = useColors();
   const d = SIZES[size];
 
   return (
@@ -38,7 +39,7 @@ export default function DivviLogo({ size = 'md', showWordmark = true }: Props) {
 
       {/* Wordmark */}
       {showWordmark && (
-        <Text style={[styles.wordmark, { fontSize: d.wordmark, marginLeft: d.gap2 - 4 }]}>
+        <Text style={[styles.wordmark, { fontSize: d.wordmark, marginLeft: d.gap2 - 4, color: T.accent }]}>
           divvi
         </Text>
       )}
@@ -61,7 +62,6 @@ const styles = StyleSheet.create({
   stripe: {},
   wordmark: {
     fontWeight: '800',
-    color: T.accent,
     letterSpacing: -0.6,
   },
 });
