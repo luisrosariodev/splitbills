@@ -19,7 +19,7 @@ import { Session } from '@supabase/supabase-js';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import supabaseClient from './src/lib/supabase';
 import { RootStackParamList, TabParamList } from './src/types/navigation';
 import { syncOfflineQueue } from './src/lib/splitService';
@@ -330,6 +330,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <StatusBar style="dark" />
       <OfflineBanner />
       <NavigationContainer theme={colorScheme === 'dark' ? DarkTheme : DefaultTheme} linking={linking}>
@@ -354,6 +355,7 @@ export default function App() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
