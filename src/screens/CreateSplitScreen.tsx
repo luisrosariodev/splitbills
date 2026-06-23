@@ -19,7 +19,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../types/navigation';
 import { Person, Item } from '../types';
-import { saveSplit, getRecentPeople } from '../lib/splitService';
+import { saveSplit, getRecentPeople, saveOcrReport } from '../lib/splitService';
 import supabaseClient from '../lib/supabase';
 import { addToQueue } from '../lib/offlineQueue';
 import { notifySplitSaved } from '../lib/notifications';
@@ -156,6 +156,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
   const [scanningReceipt, setScanningReceipt] = useState(false);
   const [receiptPhotoUri, setReceiptPhotoUri] = useState<string | null>(null);
   const lastScanRef = useRef(0);
+  const ocrParsedRef = useRef<Array<{ name: string; price: number }> | null>(null);
 
   const handleScanReceipt = async () => {
     if (Date.now() - lastScanRef.current < 3000) return;
@@ -224,6 +225,7 @@ export default function CreateSplitScreen({ navigation }: Props) {
         return;
       }
 
+      ocrParsedRef.current = parsed.map((p) => ({ name: p.name.slice(0, 60), price: p.price }));
       setReceiptPhotoUri(compressed.uri);
       setItems((prev) => [
         ...prev,
@@ -399,6 +401,11 @@ export default function CreateSplitScreen({ navigation }: Props) {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       notifySplitSaved(splitName);
+      if (ocrParsedRef.current) {
+        const finalItems = items.map((i) => ({ name: i.name, price: i.price }));
+        saveOcrReport(ocrParsedRef.current, finalItems).catch(() => {});
+        ocrParsedRef.current = null;
+      }
       setSaved(true);
       setTimeout(() => { if (mountedRef.current) setSaved(false); }, 3000);
     } catch (err: any) {

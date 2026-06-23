@@ -234,6 +234,29 @@ export const sendPasswordReset = async (email: string) => {
   if (error) throw error;
 };
 
+export const saveOcrReport = async (
+  claudeItems: Array<{ name: string; price: number }>,
+  finalItems: Array<{ name: string; price: number }>,
+): Promise<void> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return;
+  const hadCorrections =
+    claudeItems.length !== finalItems.length ||
+    claudeItems.some((c, i) =>
+      !finalItems[i] ||
+      Math.abs(c.price - finalItems[i].price) > 0.01 ||
+      c.name.trim().toLowerCase() !== finalItems[i].name.trim().toLowerCase()
+    );
+  await supabaseClient.from('ocr_reports').insert({
+    user_id: user.id,
+    claude_items: claudeItems,
+    final_items: finalItems,
+    claude_count: claudeItems.length,
+    final_count: finalItems.length,
+    had_corrections: hadCorrections,
+  });
+};
+
 export const recordTermsAccepted = async (): Promise<void> => {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return;
@@ -247,6 +270,7 @@ export const deleteAllUserData = async () => {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('No autenticado');
   // Delete groups, splits cascade-deletes people/items/assignments
+  await supabaseClient.from('ocr_reports').delete().eq('user_id', user.id);
   await supabaseClient.from('saved_contacts').delete().eq('user_id', user.id);
   await supabaseClient.from('groups').delete().eq('user_id', user.id);
   await supabaseClient.from('splits').delete().eq('user_id', user.id);
