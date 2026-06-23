@@ -2,15 +2,18 @@ import { useState } from 'react';
 import {
   StyleSheet, Text, View, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  ScrollView, Animated,
+  ScrollView, Animated, Linking,
 } from 'react-native';
 import supabaseClient from '../lib/supabase';
 import { validateEmail, validatePassword, sanitize } from '../lib/validation';
+import { recordTermsAccepted } from '../lib/splitService';
 import { useColors, GRADIENT } from '../lib/theme';
 import { useScreenAnimation } from '../hooks/useScreenAnimation';
 import PressScale from '../components/PressScale';
 import DivviLogo from '../components/DivviLogo';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const PRIVACY_URL = 'https://rosariodev.com/divvi/privacy';
 
 const ERROR_MAP: Record<string, string> = {
   'Invalid login credentials': 'Email o contraseña incorrectos.',
@@ -42,8 +45,12 @@ export default function AuthScreen() {
         const { error } = await supabaseClient.auth.signInWithPassword({ email: cleanEmail, password });
         if (error) throw error;
       } else {
-        const { error } = await supabaseClient.auth.signUp({ email: cleanEmail, password });
+        const { data, error } = await supabaseClient.auth.signUp({ email: cleanEmail, password });
         if (error) throw error;
+        // Record terms acceptance immediately after account creation
+        if (data.user) {
+          recordTermsAccepted().catch(() => {});
+        }
         setInfo('Revisa tu email para confirmar tu cuenta.');
       }
     } catch (e: any) {
@@ -167,6 +174,17 @@ export default function AuthScreen() {
               {mode === 'login' ? '¿Sin cuenta? Regístrate' : '¿Ya tienes cuenta? Entra'}
             </Text>
           </PressScale>
+
+          {mode === 'register' && (
+            <Text style={s.legalText}>
+              Al registrarte, aceptas nuestra{' '}
+              <Text style={s.legalLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
+                Política de Privacidad
+              </Text>
+              {'. '}
+              Tu foto de recibo es procesada por IA (Claude de Anthropic) y no se almacena permanentemente.
+            </Text>
+          )}
         </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -222,4 +240,10 @@ const makeStyles = (T: ReturnType<typeof useColors>) => StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   switchBtn: { alignItems: 'center', paddingVertical: 14 },
   switchText: { color: T.accentText, fontSize: 15, fontWeight: '600' },
+
+  legalText: {
+    fontSize: 12, color: T.textDim, textAlign: 'center',
+    lineHeight: 18, marginTop: 8, paddingHorizontal: 8,
+  },
+  legalLink: { color: T.accent, fontWeight: '600' },
 });

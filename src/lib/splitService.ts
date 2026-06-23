@@ -234,6 +234,15 @@ export const sendPasswordReset = async (email: string) => {
   if (error) throw error;
 };
 
+export const recordTermsAccepted = async (): Promise<void> => {
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if (!user) return;
+  await supabaseClient.from('profiles').upsert(
+    { user_id: user.id, terms_accepted_at: new Date().toISOString() },
+    { onConflict: 'user_id' },
+  );
+};
+
 export const deleteAllUserData = async () => {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('No autenticado');
