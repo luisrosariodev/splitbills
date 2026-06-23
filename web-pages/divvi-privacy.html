@@ -17,7 +17,7 @@
     }
     .nav-logo {
       font-size: 20px; font-weight: 700; letter-spacing: -0.5px; text-decoration: none;
-      background: linear-gradient(135deg, #00CFFF 0%, #7B2FFF 100%);
+      background: linear-gradient(135deg, #00CFFF 0%, #0B5884 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
     .nav-back { font-size: 13px; color: #555; text-decoration: none; border-bottom: 1px solid #eee; }
@@ -31,11 +31,11 @@
     p { font-size: 15px; color: #333; margin-bottom: 14px; }
     ul { padding-left: 20px; margin-bottom: 14px; }
     li { font-size: 15px; color: #333; margin-bottom: 6px; }
-    a { color: #6535E8; text-decoration: none; }
+    a { color: #0B5884; text-decoration: none; }
     a:hover { text-decoration: underline; }
 
     .highlight {
-      background: #F8F7FF; border: 1px solid #E6E0FF; border-radius: 12px;
+      background: #EDF3F7; border: 1px solid #C8DCE9; border-radius: 12px;
       padding: 20px 24px; margin: 20px 0;
     }
     .highlight p { margin: 0; color: #444; }
@@ -62,7 +62,7 @@
 
   <div class="content">
     <h1>Política de Privacidad</h1>
-    <p class="updated">Última actualización: 11 de junio de 2026</p>
+    <p class="updated">Última actualización: 22 de junio de 2026</p>
 
     <div class="highlight">
       <p><strong>Resumen:</strong> divvi recopila solo los datos necesarios para funcionar. No vendemos tu información ni la compartimos con terceros con fines publicitarios.</p>
@@ -76,7 +76,8 @@
     <h2 style="font-size:16px; font-weight:600; margin-top:24px;">2.1 Datos de cuenta</h2>
     <ul>
       <li><strong>Correo electrónico</strong> — para crear y acceder a tu cuenta.</li>
-      <li><strong>Nombre de perfil</strong> — que tú mismo estableces.</li>
+      <li><strong>Nombre de perfil</strong> — que tú mismo estableces opcionalmente.</li>
+      <li><strong>Fecha y hora de aceptación de esta Política</strong> — registrada automáticamente al crear tu cuenta, como constancia de tu consentimiento.</li>
     </ul>
 
     <h2 style="font-size:16px; font-weight:600; margin-top:24px;">2.2 Datos de uso</h2>
@@ -91,8 +92,8 @@
     <h2 style="font-size:16px; font-weight:600; margin-top:24px;">2.3 Fotos de recibos</h2>
     <p>Cuando usas la función de escaneo de recibos:</p>
     <ul>
-      <li>La imagen se comprime y envía a un servidor seguro (Supabase Edge Function) para procesamiento.</li>
-      <li>Desde ahí se envía a la API de <a href="https://anthropic.com" target="_blank">Anthropic (Claude)</a> solo para extraer los ítems y precios.</li>
+      <li>La imagen se comprime en tu dispositivo y se envía a un servidor seguro (Supabase Edge Function) para procesamiento.</li>
+      <li>Desde ahí se envía a la API de <a href="https://anthropic.com" target="_blank">Anthropic (Claude)</a> únicamente para extraer los ítems y precios del recibo.</li>
       <li><strong>La imagen no se almacena permanentemente en ningún servidor externo.</strong></li>
       <li>Una copia local de la imagen puede guardarse en tu dispositivo para mostrarla en el detalle del divvi.</li>
     </ul>
@@ -103,8 +104,9 @@
     <h2>3. Cómo usamos los datos</h2>
     <ul>
       <li>Proveer las funciones de la app (crear divvis, calcular montos, registrar pagos).</li>
-      <li>Mantener tu historial de divvis sincronizado entre dispositivos.</li>
-      <li>Enviarte notificaciones locales (guardado de divvi, pagos confirmados).</li>
+      <li>Mantener tu historial de divvis sincronizado entre sesiones.</li>
+      <li>Enviarte notificaciones locales (guardado de divvi, pagos confirmados, sincronización offline).</li>
+      <li>Registrar tu consentimiento a esta política al momento de crear tu cuenta.</li>
     </ul>
     <p><strong>No usamos tus datos para publicidad, análisis de comportamiento ni los vendemos a terceros.</strong></p>
 
@@ -112,12 +114,12 @@
     <p>divvi utiliza los siguientes servicios de terceros para operar:</p>
     <ul>
       <li><strong>Supabase</strong> — base de datos y autenticación. <a href="https://supabase.com/privacy" target="_blank">Ver su política</a>.</li>
-      <li><strong>Anthropic</strong> — procesamiento de imágenes de recibos. <a href="https://www.anthropic.com/privacy" target="_blank">Ver su política</a>.</li>
+      <li><strong>Anthropic (Claude)</strong> — procesamiento de imágenes de recibos para extraer ítems y precios. <a href="https://www.anthropic.com/privacy" target="_blank">Ver su política</a>.</li>
     </ul>
     <p>No compartimos tu información con ningún otro tercero.</p>
 
     <h2>5. Retención de datos</h2>
-    <p>Tus datos se conservan mientras tu cuenta esté activa. Puedes eliminar tu cuenta y todos tus datos en cualquier momento desde <strong>Perfil → Eliminar cuenta y datos</strong> dentro de la app.</p>
+    <p>Tus datos se conservan mientras tu cuenta esté activa. Puedes eliminar tu cuenta y todos tus datos en cualquier momento desde <strong>Perfil → Eliminar cuenta y datos</strong> dentro de la app. La eliminación incluye divvis, grupos, contactos guardados, pagos y tu perfil.</p>
 
     <h2>6. Seguridad</h2>
     <p>Todos los datos se transmiten usando HTTPS. Las contraseñas se almacenan con hash seguro a través de Supabase Auth. Las claves de API sensibles se almacenan en servidores seguros y nunca se incluyen en el código de la app.</p>
@@ -126,7 +128,7 @@
     <p>divvi no está dirigido a menores de 13 años. No recopilamos intencionalmente información de niños menores de 13 años.</p>
 
     <h2>8. Cambios a esta política</h2>
-    <p>Si realizamos cambios materiales, te notificaremos a través de la app o por correo electrónico. El uso continuado de divvi después de los cambios constituye aceptación de la política actualizada.</p>
+    <p>Si realizamos cambios materiales, te notificaremos a través de la app o por correo electrónico. La fecha de "Última actualización" al inicio de esta página siempre reflejará la versión vigente.</p>
 
     <h2>9. Contacto</h2>
     <p>Para preguntas sobre privacidad: <a href="mailto:contact@rosariodev.com">contact@rosariodev.com</a></p>
